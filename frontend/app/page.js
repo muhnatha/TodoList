@@ -1,3 +1,7 @@
-export default function Page() {
-  return <h1>Hello, Next.js!</h1>
+import { redirect } from 'next/navigation';
+
+export default function Home() {
+  // Redirect to login or dashboard based on auth
+  // For now, just send to login
+  redirect('/login');
 }
