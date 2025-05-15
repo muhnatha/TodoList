@@ -1,30 +1,10 @@
 'use client';
 import React, { useState } from 'react';
 import Image from 'next/image';
+import { LayoutGrid, Calendar, NotebookIcon, ListTodoIcon, Settings } from 'lucide-react';
 
 // SVG Icon Components (Example Icons)
 // You can replace these with your preferred SVG icons or a lightweight icon library
-const HomeIcon = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="/toogas.png" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-    </svg>
-);
-
-const UsersIcon = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-        <circle cx="9" cy="7" r="4"></circle>
-        <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-    </svg>
-);
-
-const SettingsIcon = ({ className = "w-5 h-5" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 .25 1l-.43.25a2 2 0 0 1-1 1.73V14a2 2 0 0 0-2 2v.44a2 2 0 0 0 2 2h.18a2 2 0 0 1 1.73 1l.25.43a2 2 0 0 1 0 2l-.08.15a2 2 0 0 0 .73 2.73l.38.22a2 2 0 0 0 2.73-.73l.1-.15a2 2 0 0 1 1-.25l.25.43a2 2 0 0 1 1.73 1H14a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-.25-1l.43-.25a2 2 0 0 1 1-1.73V10a2 2 0 0 0 2-2v-.44a2 2 0 0 0-2-2h-.18a2 2 0 0 1-1.73-1l-.25-.43a2 2 0 0 1 0-2l.08-.15a2 2 0 0 0-.73-2.73l-.38-.22a2 2 0 0 0-2.73.73l-.1.15a2 2 0 0 1-1 .25l-.25-.43a2 2 0 0 1-1.73-1Z"></path>
-        <circle cx="12" cy="12" r="3"></circle>
-    </svg>
-);
 
 const MenuIcon = ({ className = "w-6 h-6" }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -49,16 +29,11 @@ const Sidebar = () => {
     };
 
     const navItems = [
-        { href: "/dashboard", icon: <HomeIcon />},
-        { href: "#", icon: <UsersIcon />},
-        {
-            label: "Pages",
-            icon: <SettingsIcon />, // Placeholder icon
-            isDropdown: true,
-            isOpen: isPagesDropdownOpen,
-
-        },
-        { href: "#", icon: <SettingsIcon />},
+        { href: "/dashboard", icon: <LayoutGrid />},
+        { href: "/calendar", icon: <Calendar />},
+        { href: "/todo", icon: <ListTodoIcon />},
+        { href: "/notes", icon: <NotebookIcon />},
+        { href: "/settings", icon: <Settings />}
     ];
 
     const renderNavItem = (item, index) => (
@@ -66,7 +41,7 @@ const Sidebar = () => {
             {
                 <a
                     href={item.href}
-                    className="flex items-center space-x-3 px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-[#5051F9] dark:hover:bg-white hover:text-white rounded-md transition-colors duration-150 group"
+                    className="flex items-center mb-3 space-x-3 px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-[#5051F9] dark:hover:bg-white hover:text-white rounded-md transition-colors duration-150 group"
                 >
                     {item.icon}
                 </a>
