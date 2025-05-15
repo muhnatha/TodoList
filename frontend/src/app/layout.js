@@ -1,5 +1,3 @@
-import Link from 'next/link';
-import Sidebar from '@/components/sidebar';
 import '@/app/globals.css';
 import { DM_Sans } from 'next/font/google'
 
