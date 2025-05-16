@@ -24,7 +24,7 @@ export default function LoginPage() {
       <UserCircleIcon className='w-30 h-30 text-[#A4B6DF]'/>
       <form onSubmit={handleSubmit} className='p-4'>
         <h1 className='text-center font-bold text-3xl mb-3 px-20'>WELCOME TO TOOGAS!</h1>
-        <h2 className='text-center text-[#444444] mb-5'>LOGIN TO YOUR ACCOUNT!</h2>
+        <h2 className='text-center text-[#010000] mb-5'>CREATE YOUR ACCOUNT!</h2>
         <div className='flex flex-col gap-5'>
           <div className='mt-5 flex flex-col gap-2'>
             <div className='flex flex-col gap-2'>
@@ -35,10 +35,10 @@ export default function LoginPage() {
               <label className='font-bold'>Password</label>
               <input type="password" className='rounded-sm p-2 text-sm text-black/50 font-bold bg-white/50' value={password} onChange={(e) => setPassword(e.target.value)} required placeholder='Enter your password here'/>
             </div>
+              <input type="password" className='rounded-sm p-2 text-sm text-black/50 font-bold bg-white/50 mt-2' value={password} onChange={(e) => setPassword(e.target.value)} required placeholder='Confirm your password here'/>
           </div>
           <div className='flex flex-col gap-2 justify-center items-center mt-10'>
-            <button type="submit" className='justify-center rounded-sm py-1 w-full hover:cursor-pointer bg-[#5051F9]/50'><span className='font-bold'>LOGIN</span></button>
-            <p className='text-sm'>Don't have account? <a href='/signup' className='font-bold'>Sign Up</a></p>
+            <button type="submit" className='justify-center rounded-sm py-1 w-full hover:cursor-pointer bg-[#5051F9]/50'><span className='font-bold'>SIGN UP</span></button>
           </div>
         </div>
       </form>
