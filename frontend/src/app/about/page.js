@@ -10,7 +10,7 @@ export default function AboutPage() {
                 <Image src="/toogas2.svg" alt='toogas' width={80} height={80} className='mb-2'/>
                 <h1 className='text-white text-4xl font-semibold'>About</h1>
             </div>
-            <div className='bg-white/50 rounded-lg max-w-1/2'>
+            <div className='bg-white/50 rounded-lg max-w-2/3 sm:max-w-1/2'>
                 <div className='p-5'>
                     <p className='text-justify'><span className='font-bold'>TOOGAS</span> dibuat untuk membantu kamu mencatat, mengatur, dan menyelesaikan berbagai tugas harian dengan lebih mudah dan terorganisir. 
                         Mulai dari hal kecil seperti belanja kebutuhan, sampai merencanakan tugas besar, semuanya bisa kamu kelola dalam satu tempat. Dengan 
