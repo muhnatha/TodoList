@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { LayoutGrid, Calendar, NotebookIcon, ListTodoIcon, Settings } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 // SVG Icon Components (Example Icons)
 // You can replace these with your preferred SVG icons or a lightweight icon library
@@ -15,6 +16,7 @@ const MenuIcon = ({ className = "w-6 h-6" }) => (
 );
 
 const Sidebar = () => {
+    const pathName = usePathname()
     // State to manage sidebar visibility on mobile
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     // State to manage dropdown visibility (example)
@@ -41,7 +43,12 @@ const Sidebar = () => {
             {
                 <a
                     href={item.href}
-                    className="flex items-center mb-3 space-x-3 px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-[#5051F9] dark:hover:bg-white hover:text-white rounded-md transition-colors duration-150 group"
+                    className={`flex items-center mb-3 space-x-3 px-2 py-2 text-sm font-medium rounded-md transition-colors duration-150 group 
+                        ${pathName === item.href 
+                            ? 'bg-[#5051F9] text-white'
+                            :  'text-slate-700 dark:text-slate-300 hover:bg-[#5051F9] dark:hover:bg-white hover:text-white'
+                        }
+                    `}
                 >
                     {item.icon}
                 </a>

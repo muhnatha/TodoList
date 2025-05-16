@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { User, UserCircleIcon } from 'lucide-react';
+import { UserCircleIcon } from 'lucide-react';
 import Image from 'next/image';
 
 export default function LoginPage() {
