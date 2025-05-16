@@ -1,13 +1,16 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { UserCircleIcon } from 'lucide-react';
+import { UserCircleIcon, LucideEye, LucideEyeClosed } from 'lucide-react';
 import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,10 +35,50 @@ export default function LoginPage() {
               <input type="email" className='rounded-sm p-2 text-sm text-black/50 font-bold bg-white/50' value={email} onChange={(e) => setEmail(e.target.value)} required placeholder='Enter your email here'/>
             </div>
             <div className='flex flex-col gap-2'>
-              <label className='font-bold'>Password</label>
-              <input type="password" className='rounded-sm p-2 text-sm text-black/50 font-bold bg-white/50' value={password} onChange={(e) => setPassword(e.target.value)} required placeholder='Enter your password here'/>
+                <label className='font-bold'>Password</label>
+              <div className='flex flex-row relative'>
+                <input 
+                  type={showPassword ? 'text' : 'password'} 
+                  id='password' 
+                  className='block rounded-sm p-2 text-sm text-black/50 font-bold bg-white/50 w-full' 
+                  value={password} onChange={(e) => setPassword(e.target.value)} 
+                  required 
+                  placeholder='Enter your password here'/>
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-2 flex items-center
+                           text-black dark:text-white
+                             text-sm font-medium"
+                  onClick={() => {
+                    setShowPassword((prev) => !prev);
+                  }}
+                >
+                  {showPassword ? 
+                    <LucideEye className='opacity-50 hover:cursor-pointer' /> : <LucideEyeClosed className='opacity-50 hover:cursor-pointer' />}
+                </button>
+              </div>
             </div>
-              <input type="password" className='rounded-sm p-2 text-sm text-black/50 font-bold bg-white/50 mt-2' value={password} onChange={(e) => setPassword(e.target.value)} required placeholder='Confirm your password here'/>
+              <div className='flex flex-row relative'>
+                <input 
+                  type={showConfirm ? 'text' : 'password'} 
+                  id='confirm' 
+                  className='block rounded-sm p-2 text-sm text-black/50 font-bold bg-white/50 w-full' 
+                  value={confirm} onChange={(e) => setConfirm(e.target.value)} 
+                  required 
+                  placeholder='Confirm your password here'/>
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-2 flex items-center
+                           text-black dark:text-white
+                             text-sm font-medium"
+                  onClick={() => {
+                    setShowConfirm((prev) => !prev);
+                  }}
+                >
+                  {showConfirm ? 
+                    <LucideEye className='opacity-50 hover:cursor-pointer' /> : <LucideEyeClosed className='opacity-50 hover:cursor-pointer' />}
+                </button>
+              </div>
           </div>
           <div className='flex flex-col gap-2 justify-center items-center mt-10'>
             <button type="submit" className='justify-center rounded-sm py-1 w-full hover:cursor-pointer bg-[#5051F9]/50'><span className='font-bold'>SIGN UP</span></button>
