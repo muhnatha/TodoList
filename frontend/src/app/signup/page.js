@@ -19,7 +19,7 @@ export default function SignUpPage() {
   const handleSubmit = async (e) => {
   e.preventDefault();
 
-  if (password !== confirmPassword) {
+  if (password !== confirm) {
     alert("Password dan Konfirmasi Password tidak sama");
     return;
   }
