@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function AboutPage() {
     return (
@@ -18,6 +19,7 @@ export default function AboutPage() {
                         ini bisa jadi teman andalan kamu dalam menjalani hari-hari yang sibuk.</p>
                 </div>
             </div>
+            <Link href='/login' className='hover:underline text-white font-semibold'>Go to Login →</Link>
         </div>
     )
 }

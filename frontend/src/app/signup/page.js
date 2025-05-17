@@ -13,8 +13,6 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [message, setMessage] = useState('');
-
-
   
   const handleSubmit = async (e) => {
   e.preventDefault();
@@ -30,7 +28,7 @@ export default function SignUpPage() {
     });
 
     if (error) {
-      setMessage(error.message);
+      setMessage("Email sudah digunakan");
       console.log('fail to fetch');
     } else {
       setMessage("Pendaftaran berhasil! Silakan cek email Anda.");
@@ -43,7 +41,6 @@ export default function SignUpPage() {
       <div className='-z-1 fixed w-screen h-screen'>
         <Image src="/home-bg.svg" alt='Background image' fill style={{ objectFit:'cover'}} priority/>
       </div>
-      <h2 className='text-center font-bold text-[#010000] mb-5'>{message}</h2>
       <UserCircleIcon className='w-30 h-30 text-[#A4B6DF]'/>
       <form onSubmit={handleSubmit} className='p-4'>
         <h1 className='text-center font-bold text-3xl mb-3 px-20'>WELCOME TO TOOGAS!</h1>
@@ -100,8 +97,12 @@ export default function SignUpPage() {
                 </button>
               </div>
           </div>
-          <div className='flex flex-col gap-2 justify-center items-center mt-10'>
+          <div className='flex flex-col gap-2 justify-center items-center'>
+            <div className='h-5'>
+              <h2 className='text-center font-bold text-red-500 mb-5'>{message}</h2>
+            </div>
             <button type="submit" className='justify-center rounded-sm py-1 w-full hover:cursor-pointer bg-[#5051F9]/50'><span className='font-bold'>SIGN UP</span></button>
+            <p className='text-sm'>Already have account? <a href='/login' className='font-bold'>Login</a></p>
           </div>
         </div>
       </form>
