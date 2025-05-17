@@ -9,8 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "firebase": "^11.7.3",
     "framer-motion": "^12.11.0",
     "lucide-react": "^0.510.0",
     "next": "15.3.2",
