@@ -3,19 +3,41 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { UserCircleIcon, LucideEye, LucideEyeClosed } from 'lucide-react';
 import Image from 'next/image';
+import { supabase } from '../../../lib/supabaseClient';
+
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = async (e) => {
+
+
+ const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: perform auth logic
-    // On success:
-    router.push('/dashboard');
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      if (error.message === "Invalid login credentials") {
+        setErrorMsg("Email atau password salah.");
+      } else {
+        setErrorMsg("Terjadi kesalahan saat login: " + error.message);
+      }
+    } else {
+      console.log('login berhasil');
+      router.push('/dashboard');
+    }
   };
+
+
+
+
 
   return (
     <div className='flex flex-col items-center min-h-screen justify-center relative'>
@@ -59,6 +81,7 @@ export default function LoginPage() {
           </div>
           <div className='flex flex-col gap-2 justify-center items-center mt-10'>
             <button type="submit" className='justify-center rounded-sm py-1 w-full hover:cursor-pointer bg-[#5051F9]/50'><span className='font-bold'>LOGIN</span></button>
+            {errorMsg && <p style={{ color: 'red' }}>{errorMsg}</p>}
             <p className='text-sm'>Don't have account? <a href='/signup' className='font-bold'>Sign Up</a></p>
           </div>
         </div>

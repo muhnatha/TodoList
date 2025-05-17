@@ -3,20 +3,39 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { UserCircleIcon, LucideEye, LucideEyeClosed } from 'lucide-react';
 import Image from 'next/image';
+import { supabase } from '../../../lib/supabaseClient';
 
-export default function LoginPage() {
+export default function SignUpPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [message, setMessage] = useState('');
 
+
+  
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    // TODO: perform auth logic
-    // On success:
-    router.push('/dashboard');
+  e.preventDefault();
+
+  if (password !== confirm) {
+    alert("Password dan Konfirmasi Password tidak sama");
+    return;
+  }
+
+  const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      setMessage(error.message);
+      console.log('fail to fetch');
+    } else {
+      setMessage("Pendaftaran berhasil! Silakan cek email Anda.");
+      router.push('/login');
+    }
   };
 
   return (
@@ -24,6 +43,7 @@ export default function LoginPage() {
       <div className='-z-1 fixed w-screen h-screen'>
         <Image src="/home-bg.svg" alt='Background image' fill style={{ objectFit:'cover'}} priority/>
       </div>
+      <h2 className='text-center font-bold text-[#010000] mb-5'>{message}</h2>
       <UserCircleIcon className='w-30 h-30 text-[#A4B6DF]'/>
       <form onSubmit={handleSubmit} className='p-4'>
         <h1 className='text-center font-bold text-3xl mb-3 px-20'>WELCOME TO TOOGAS!</h1>
