@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { UserCircleIcon } from 'lucide-react';
+import { UserCircleIcon, LucideEye, LucideEyeClosed } from 'lucide-react';
 import Image from 'next/image';
 import { supabase } from '../../../lib/supabaseClient';
 
@@ -10,6 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
 
@@ -55,7 +56,27 @@ export default function LoginPage() {
             </div>
             <div className='flex flex-col gap-2'>
               <label className='font-bold'>Password</label>
-              <input type="password" className='rounded-sm p-2 text-sm text-black/50 font-bold bg-white/50' value={password} onChange={(e) => setPassword(e.target.value)} required placeholder='Enter your password here'/>
+                <div className='flex flex-row relative'>
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    id='password' 
+                    className='block rounded-sm p-2 text-sm text-black/50 font-bold bg-white/50 w-full' 
+                    value={password} onChange={(e) => setPassword(e.target.value)} 
+                    required 
+                    placeholder='Enter your password here'/>
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-2 flex items-center
+                            text-black dark:text-white
+                              text-sm font-medium"
+                    onClick={() => {
+                      setShowPassword((prev) => !prev);
+                    }}
+                  >
+                    {showPassword ? 
+                      <LucideEye className='opacity-50 hover:cursor-pointer' /> : <LucideEyeClosed className='opacity-50 hover:cursor-pointer' />}
+                  </button>
+                </div>            
             </div>
           </div>
           <div className='flex flex-col gap-2 justify-center items-center mt-10'>
