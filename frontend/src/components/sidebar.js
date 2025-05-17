@@ -56,14 +56,13 @@ const Sidebar = () => {
         </li>
     );
 
-
     return (
         <>
             {/* Mobile Menu Button (visible on small screens) */}
-            <div className="lg:hidden py-4 px-2 top-0 left-0">
+            <div className="sm:hidden absolute py-4 px-2 top-0 left-0">
                 <button
                     onClick={toggleMobileSidebar}
-                    className="p-2 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-slate-500"
+                    className="p-2 rounded-md"
                     aria-label="Open sidebar"
                 >
                     <MenuIcon />
@@ -73,7 +72,7 @@ const Sidebar = () => {
             {/* Overlay for mobile sidebar */}
             {isMobileSidebarOpen && (
                 <div
-                    className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm lg:hidden"
+                    className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm sm:hidden"
                     onClick={toggleMobileSidebar}
                     aria-hidden="true"
                 ></div>
@@ -86,7 +85,7 @@ const Sidebar = () => {
                     bg-[#FBFAFF] dark:bg-slate-900 h-screen
                     transform transition-transform duration-300 ease-in-out
                     ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-                    lg:translate-x-0 lg:static lg:inset-0 lg:z-auto
+                    sm:translate-x-0 sm:static sm:inset-0 sm:z-auto
                     sidebar-custom-scroll overflow-y-auto
                 `}
             >
@@ -99,7 +98,7 @@ const Sidebar = () => {
                     {/* Close button for mobile (optional, as overlay click also closes) */}
                      <button
                         onClick={toggleMobileSidebar}
-                        className="lg:hidden p-1 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        className="sm:hidden p-1 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                         aria-label="Close sidebar"
                     >
                         <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
