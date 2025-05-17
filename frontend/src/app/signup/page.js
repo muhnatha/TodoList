@@ -13,7 +13,6 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [message, setMessage] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
 
 
   
