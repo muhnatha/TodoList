@@ -38,23 +38,42 @@ const Sidebar = () => {
         { href: "/settings", icon: <Settings />}
     ];
 
-    const renderNavItem = (item, index) => (
+    const navSettings = [
+        { href: "/settings/details" },
+        { href: "/settings/password" },
+        { href: "/settings/billing" },
+        { href: "/settings/log" }
+    ]
+
+   const renderNavItem = (item, index) => {
+    let isActive = false; // Variable to determine if the nav item is active
+
+    if (item.href === '/settings') {
+        // Special logic for the "Settings" nav item
+        isActive = pathName === item.href || // Active if path is exactly "/settings"
+                   (navSettings && navSettings.some(settingRoute => pathName === settingRoute.href)); // Or active if path matches any href in navSettings
+    } else {
+        // Standard logic for all other nav items
+        isActive = pathName === item.href; // Active if path is an exact match
+    }
+    
+    return (
         <li key={index}>
-            {
-                <a
-                    href={item.href}
-                    className={`flex items-center mb-3 space-x-3 px-2 py-2 text-sm font-medium rounded-md transition-colors duration-150 group 
-                        ${pathName === item.href 
-                            ? 'bg-[#5051F9] text-white'
-                            :  'text-slate-700 dark:text-slate-300 hover:bg-[#5051F9] dark:hover:bg-white hover:text-white'
-                        }
-                    `}
-                >
-                    {item.icon}
-                </a>
-            }
+            <a
+                href={item.href}
+                className={`flex items-center mb-3 space-x-3 px-2 py-2 text-sm font-medium rounded-md transition-colors duration-150 group 
+                    ${isActive 
+                        ? 'bg-[#5051F9] text-white' // Active state styles
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-[#5051F9] dark:hover:bg-white hover:text-white' // Inactive state styles
+                    }
+                `}
+            >
+                {item.icon} {/* Ensure item.icon is a valid JSX element e.g. <IconComponent /> */}
+                {/* You might also want to render a label, e.g., item.label */}
+            </a>
         </li>
     );
+};
 
     return (
         <>

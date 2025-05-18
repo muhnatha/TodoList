@@ -5,7 +5,7 @@ import { UserCircleIcon, PencilIcon } from "lucide-react"
 import { usePathname } from 'next/navigation'
 import Link from "next/link"
 
-export default function SettingsLogPage() {
+export default function SettingsBillingPage() {
   const pathname = usePathname();
 
   const handleSave = async (e) => {
@@ -25,7 +25,7 @@ export default function SettingsLogPage() {
             {
                 <a
                     href={item.href}
-                    className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'}`}
+                    className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'} text-sm sm:text-md text-[#232360]`}
                 >
                     {item.text}
                 </a>
@@ -45,7 +45,7 @@ export default function SettingsLogPage() {
         />
       </div>
 
-      <div className="z-10 py-6 pl-15 mt-[-60] flex justify-between items-end">
+      <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60] flex justify-between items-end">
           <div className="flex items-end space-x-7">
             <div className="relative">
               <UserCircleIcon  
@@ -61,16 +61,16 @@ export default function SettingsLogPage() {
                 <PencilIcon className="w-4 h-4" />
               </button>
             </div>
-            <h1 className="text-3xl pb-1 font-bold text-[#232360]">
+            <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#232360]">
               Settings
             </h1>
           </div>
 
           <div className="flex space-x-3">
-            <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors">
+            <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors  text-sm sm:text-md">
               Cancel
             </Link>
-            <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors">
+            <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors  text-sm sm:text-md">
               Save
             </button>
           </div>
@@ -78,10 +78,32 @@ export default function SettingsLogPage() {
 
       <div className="p-6"> 
         <nav className="text-black font-semibold">
-          <ul className="flex flex-row gap-10 px-10 ">
+          <ul className="flex flex-row gap-10 min-[636px]:px-10">
             {navSettings.map(renderNavSettings)}
           </ul>
         </nav>
+      </div>
+
+      <div className="pl-16 w-full">
+        <table className="w-full text-left table-fixed">
+          <thead> 
+            <tr className="border-b-2">
+              <th>Time</th>
+              <th>Page</th>
+              <th>Activity</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Day, dd/mm/yy</td>
+              <td>Note</td>
+              <td>Title Name</td>
+              <td>Cloud Computing {'>'} Cloud Computinggg</td>
+            </tr>
+            {/*Ini nanti buat log activity dari session*/}
+          </tbody>
+        </table>
       </div>
     </PageLayout>
   );

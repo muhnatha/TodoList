@@ -33,7 +33,7 @@ export default function SettingsPasswordPage() {
             {
                 <a
                     href={item.href}
-                    className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'}`}
+                    className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'} text-sm sm:text-md text-[#232360]`}
                 >
                     {item.text}
                 </a>
@@ -54,7 +54,7 @@ export default function SettingsPasswordPage() {
       </div>
 
       <form onSubmit={handleSave}>
-        <div className="z-10 py-6 pl-15 mt-[-60] flex justify-between items-end">
+        <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60] flex justify-between items-end">
             <div className="flex items-end space-x-7">
                 <div className="relative">
                 <UserCircleIcon  
@@ -70,16 +70,16 @@ export default function SettingsPasswordPage() {
                     <PencilIcon className="w-4 h-4" />
                 </button>
                 </div>
-                <h1 className="text-3xl pb-1 font-bold text-[#232360]">
+                <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#232360]">
                 Settings
                 </h1>
             </div>
 
             <div className="flex space-x-3">
-                <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors">
+                <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md">
                 Cancel
                 </Link>
-                <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors">
+                <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md">
                 Save
                 </button>
             </div>
@@ -87,20 +87,20 @@ export default function SettingsPasswordPage() {
 
         <div className="p-6"> 
             <nav className="text-black font-semibold">
-            <ul className="flex flex-row gap-10 px-10 ">
+            <ul className="flex flex-row gap-10 min-[636px]:px-10">
                 {navSettings.map(renderNavSettings)}
             </ul>
             </nav>
         </div>
 
-        <div className="p-6 pl-16">
+        <div className="p-6 min-[636px]:pl-16">
             <div className="flex flex-col gap-5">
                 <div className="flex flex-col">
-                    <label>Old Password</label>
-                    <div className="flex flex-row relative w-1/4">
+                    <label className="text-[#232360]">Old Password</label>
+                    <div className="flex flex-row relative w-2/5 md:w-1/3 [@media(min-width:890px)]:w-1/4">
                         <input 
                         type={showOldPassword ? 'text' : 'password'} 
-                        id='confirm' 
+                        id='oldPass' 
                         className='block rounded-sm border-1 mt-1 p-2 text-sm text-black/50 font-bold bg-white/50 w-full' 
                         value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} 
                         required 
@@ -120,12 +120,12 @@ export default function SettingsPasswordPage() {
                     </div>
                 </div>
                 <div className="flex flex-row gap-10">
-                    <div className="flex flex-col w-1/4">
-                        <label>New Password</label>
+                    <div className="flex flex-col w-2/5 md:w-1/3 [@media(min-width:890px)]:w-1/4">
+                        <label className="text-[#232360]">New Password</label>
                         <div className="flex flex-row relative">
                             <input 
                             type={showNewPassword ? 'text' : 'password'} 
-                            id='confirm' 
+                            id='newPass' 
                             className='block rounded-sm border-1 mt-1 p-2 text-sm text-black/50 font-bold bg-white/50 w-full' 
                             value={newPassword} onChange={(e) => setNewPassword(e.target.value)} 
                             required 
@@ -144,12 +144,12 @@ export default function SettingsPasswordPage() {
                             </button>
                         </div>
                     </div>
-                    <div className="flex flex-col w-1/4">
-                        <label>Confirm New Password</label>
+                    <div className="flex flex-col w-2/5 md:w-1/3 [@media(min-width:890px)]:w-1/4">
+                        <label className="text-[#232360]">Confirm New Password</label>
                         <div className="flex flex-row relative">
                             <input 
                             type={showNewConfirm ? 'text' : 'password'} 
-                            id='confirm' 
+                            id='confirmNewPass' 
                             className='block rounded-sm border-1 mt-1 p-2 text-sm text-black/50 font-bold bg-white/50 w-full' 
                             value={newConfirm} onChange={(e) => setNewConfirm(e.target.value)} 
                             required 
