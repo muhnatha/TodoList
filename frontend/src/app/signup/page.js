@@ -28,7 +28,7 @@ export default function SignUpPage() {
     });
 
     if (error) {
-      setMessage("Email sudah digunakan");
+      setMessage(error.message);
       console.log('fail to fetch');
     } else {
       setMessage("Pendaftaran berhasil! Silakan cek email Anda.");

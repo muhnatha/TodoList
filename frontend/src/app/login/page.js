@@ -36,7 +36,7 @@ export default function LoginPage() {
   return (
     <div className='flex flex-col items-center min-h-screen justify-center relative'>
       <div className='fixed top-0 left-2 m-3'>
-        <Link href='/about' className='text-white font-semibold'>About</Link>
+        <Link href='/about' className='text-white font-semibold hover:underline'>← About</Link>
       </div>
       <div className='-z-1 fixed w-screen h-screen'>
         <Image src="/home-bg.svg" alt='Background image' fill style={{ objectFit:'cover'}} priority/>
