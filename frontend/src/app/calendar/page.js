@@ -1,18 +1,24 @@
+'use client'
+
 import PageLayout from "@/components/PageLayout"
+import { React,useState } from 'react'
+import { Calendar } from "@/components/ui/calendar"
 
 export default function CalendarPage() {
+  const [date, setDate] = useState(new Date());
+
   return (
     <PageLayout title="CALENDAR">
-      <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">
-        Main Content Area
-      </h1>
-      <p className="mt-2 text-slate-700 dark:text-slate-300">
-        Your page content goes here. The sidebar will be fixed on the left on larger screens,
-        and toggleable on mobile screens.
-      </p>
-      {/* Add more content to test scrolling within main area */}
-      <div className="mt-10 h-auto bg-white dark:bg-slate-800 rounded-lg p-4">
-          Scrollable Content
+      <div className="flex w-full">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={setDate}
+          className="mr-2"
+        />
+        <div className="border-l-1 w-full">
+          <h1 className="ml-2">Tes</h1>
+        </div>
       </div>
     </PageLayout>
   )
