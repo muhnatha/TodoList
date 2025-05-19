@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { UserCircleIcon, LucideEye, LucideEyeClosed } from 'lucide-react';
 import Image from 'next/image';
 import { supabase } from '../../../lib/supabaseClient';
+import { translateSupabaseError } from '../../../lib/translateError';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -28,10 +29,9 @@ export default function SignUpPage() {
     });
 
     if (error) {
-      setMessage(error.message);
-      console.log('fail to fetch');
+      setMessage(translateSupabaseError(error));
     } else {
-      setMessage("Pendaftaran berhasil! Silakan cek email Anda.");
+      setMessage("Pendaftaran berhasil!");
       router.push('/login');
     }
   };

@@ -5,6 +5,10 @@ import { UserCircleIcon, PencilIcon, Edit, LogOut } from "lucide-react"
 import { usePathname } from 'next/navigation'
 import Link from "next/link"
 import { useState } from 'react'
+import { supabase } from '../../../../lib/supabaseClient';
+import { useRouter } from 'next/navigation';
+
+
 
 export default function SettingsDetailsPage() {
   const [firstName, setFirstName] = useState('');
@@ -16,6 +20,7 @@ export default function SettingsDetailsPage() {
   const [isEmailDisabled, setIsEmailDisabled] = useState(true);
   const [isPhoneDisabled, setIsPhoneDisabled] = useState(true);
   const pathname = usePathname();
+  const router = useRouter(); 
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -24,7 +29,21 @@ export default function SettingsDetailsPage() {
 
   const handleLogOut = async (e) => {
     e.preventDefault();
-    // bantu atasi log out
+
+    const confirmLogout = window.confirm('Apakah kamu yakin ingin logout?');
+    if (!confirmLogout) {
+        return;
+    }
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+        console.error('Gagal logout:', error.message);
+    } else {
+        console.log('Logout berhasil');
+        router.push('/login');
+    }
+
   };
 
   const navSettings = [

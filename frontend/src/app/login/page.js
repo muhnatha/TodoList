@@ -5,6 +5,7 @@ import { UserCircleIcon, LucideEye, LucideEyeClosed } from 'lucide-react';
 import Image from 'next/image';
 import { supabase } from '../../../lib/supabaseClient';
 import Link from 'next/link';
+import { translateSupabaseError } from '../../../lib/translateError';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,11 +23,7 @@ export default function LoginPage() {
     });
 
     if (error) {
-      if (error.message === "Invalid login credentials") {
-        setErrorMsg("Email atau password salah.");
-      } else {
-        setErrorMsg("Terjadi kesalahan saat login: " + error.message);
-      }
+      setErrorMsg(translateSupabaseError(error));
     } else {
       console.log('login berhasil');
       router.push('/dashboard');
