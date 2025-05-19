@@ -14,8 +14,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-
-
  const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -32,12 +30,11 @@ export default function LoginPage() {
     }
   };
 
-
-
-
-
   return (
     <div className='flex flex-col items-center min-h-screen justify-center relative'>
+      <div className='fixed top-0 left-2 m-3'>
+        <Link href='/about' className='text-white font-semibold hover:underline'>← About</Link>
+      </div>
       <div className='-z-1 fixed w-screen h-screen'>
         <Image src="/home-bg.svg" alt='Background image' fill style={{ objectFit:'cover'}} priority/>
       </div>
@@ -76,9 +73,11 @@ export default function LoginPage() {
                 </div>            
             </div>
           </div>
-          <div className='flex flex-col gap-2 justify-center items-center mt-10'>
+          <div className='flex flex-col gap-2 justify-center items-center'>
+            <div className="h-5 mt-2 text-sm text-red-500 text-center">
+              {errorMsg && <p>{errorMsg}</p>}
+            </div>
             <button type="submit" className='justify-center rounded-sm py-1 w-full hover:cursor-pointer bg-[#5051F9]/50'><span className='font-bold'>LOGIN</span></button>
-            {errorMsg && <p style={{ color: 'red' }}>{errorMsg}</p>}
             <p className='text-sm'>Don't have account? <a href='/signup' className='font-bold'>Sign Up</a></p>
           </div>
         </div>

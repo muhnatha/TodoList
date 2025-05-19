@@ -38,32 +38,50 @@ const Sidebar = () => {
         { href: "/settings", icon: <Settings />}
     ];
 
-    const renderNavItem = (item, index) => (
+    const navSettings = [
+        { href: "/settings/details" },
+        { href: "/settings/password" },
+        { href: "/settings/billing" },
+        { href: "/settings/log" }
+    ]
+
+   const renderNavItem = (item, index) => {
+    let isActive = false; // Variable to determine if the nav item is active
+
+    if (item.href === '/settings') {
+        // Special logic for the "Settings" nav item
+        isActive = pathName === item.href || // Active if path is exactly "/settings"
+                   (navSettings && navSettings.some(settingRoute => pathName === settingRoute.href)); // Or active if path matches any href in navSettings
+    } else {
+        // Standard logic for all other nav items
+        isActive = pathName === item.href; // Active if path is an exact match
+    }
+    
+    return (
         <li key={index}>
-            {
-                <a
-                    href={item.href}
-                    className={`flex items-center mb-3 space-x-3 px-2 py-2 text-sm font-medium rounded-md transition-colors duration-150 group 
-                        ${pathName === item.href 
-                            ? 'bg-[#5051F9] text-white'
-                            :  'text-slate-700 dark:text-slate-300 hover:bg-[#5051F9] dark:hover:bg-white hover:text-white'
-                        }
-                    `}
-                >
-                    {item.icon}
-                </a>
-            }
+            <a
+                href={item.href}
+                className={`flex items-center mb-3 space-x-3 px-2 py-2 text-sm font-medium rounded-md transition-colors duration-150 group 
+                    ${isActive 
+                        ? 'bg-[#5051F9] text-white' // Active state styles
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-[#5051F9] dark:hover:bg-white hover:text-white' // Inactive state styles
+                    }
+                `}
+            >
+                {item.icon} {/* Ensure item.icon is a valid JSX element e.g. <IconComponent /> */}
+                {/* You might also want to render a label, e.g., item.label */}
+            </a>
         </li>
     );
-
+};
 
     return (
         <>
             {/* Mobile Menu Button (visible on small screens) */}
-            <div className="lg:hidden py-4 px-2 top-0 left-0">
+            <div className="sm:hidden absolute py-4 px-2 top-0 left-0">
                 <button
                     onClick={toggleMobileSidebar}
-                    className="p-2 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-slate-500"
+                    className="p-2 rounded-md"
                     aria-label="Open sidebar"
                 >
                     <MenuIcon />
@@ -73,7 +91,7 @@ const Sidebar = () => {
             {/* Overlay for mobile sidebar */}
             {isMobileSidebarOpen && (
                 <div
-                    className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm lg:hidden"
+                    className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm sm:hidden"
                     onClick={toggleMobileSidebar}
                     aria-hidden="true"
                 ></div>
@@ -86,7 +104,7 @@ const Sidebar = () => {
                     bg-[#FBFAFF] dark:bg-slate-900 h-screen
                     transform transition-transform duration-300 ease-in-out
                     ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-                    lg:translate-x-0 lg:static lg:inset-0 lg:z-auto
+                    sm:translate-x-0 sm:static sm:inset-0 sm:z-auto
                     sidebar-custom-scroll overflow-y-auto
                 `}
             >
@@ -99,7 +117,7 @@ const Sidebar = () => {
                     {/* Close button for mobile (optional, as overlay click also closes) */}
                      <button
                         onClick={toggleMobileSidebar}
-                        className="lg:hidden p-1 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        className="sm:hidden p-1 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                         aria-label="Close sidebar"
                     >
                         <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
