@@ -8,8 +8,6 @@ import { useState } from 'react'
 import { supabase } from '../../../../lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
-
-
 export default function SettingsDetailsPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
