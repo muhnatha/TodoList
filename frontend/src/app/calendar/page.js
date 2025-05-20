@@ -35,7 +35,7 @@ const exampleTasks = [
 export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [tasks, setTasks] = useState(exampleTasks);
-  console.log(tasks[1])
+  console.log(tasks)
   const bigEvents = Array.isArray(tasks)
     ? tasks.map(task => ({
         id: task.id,

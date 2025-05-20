@@ -61,7 +61,7 @@ const Sidebar = () => {
         <li key={index}>
             <a
                 href={item.href}
-                className={`flex items-center mb-3 space-x-3 px-2 py-2 text-sm font-medium rounded-md transition-colors duration-150 group 
+                className={`flex items-center mb-3 space-x-3 px-2 py-2 text-sm font-medium rounded-md transition-colors duration-150 group
                     ${isActive 
                         ? 'bg-[#5051F9] text-white' // Active state styles
                         : 'text-slate-700 dark:text-slate-300 hover:bg-[#5051F9] dark:hover:bg-white hover:text-white' // Inactive state styles
