@@ -136,7 +136,7 @@ export default function TodoPage() {
                     </div>
                   </div>
                 )}
-                </CardContent>
+              </CardContent>
             </div>
 
             {/* Completed Column */}
