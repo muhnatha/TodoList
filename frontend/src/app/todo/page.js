@@ -7,12 +7,27 @@ import { addTask } from '../action'
 import { useActionState } from 'react'
 import { CirclePlus, Calendar, Tag } from "lucide-react"
 import TaskForm from '@/components/TaskForm'
+import { supabase } from '@/lib/supabaseClient'
 
 const initialState = {
   message: '',
-  status: 'todo',
   success: false,
 };
+
+async function fetchTasks() {
+  const { data, error } = await supabase
+    .from('task')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error("Error fetching tasks:", error);
+    return [];
+  }
+
+  console.log("Fetched tasks:", data);
+  return data;
+}
 
 export default function TodoPage() {
   const [state, formAction] = useActionState(addTask, initialState);
@@ -21,31 +36,42 @@ export default function TodoPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState(initialState);
 
-  // Function to update the status of a task
-  const updateTaskStatus = (taskId, newStatus) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId ? { ...task, status: newStatus } : task
-      )
-    );
+  // Update Task status to complete (masih error)
+  const updateTaskStatus = async (taskId) => {
+    const updatedTask = tasks.find(task => task.id === taskId);
+    if (!updatedTask) return;
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('task')
+      .update({ status: 'completed' })
+      .eq('id', taskId)
+      .select();
+    if (!error) {
+      // Refetch tasks to ensure UI is in sync with DB
+      const data = await fetchTasks();
+      setTasks(data || []);
+    } else {
+      console.error('Failed to update task status:', error);
+    }
+    setIsLoading(false);
   };
 
   // Effect to update tasks when a new task is added
   useEffect(() => {
-    // If state contains a task and it was successful, add it to the tasks list
     if (state.task && state.success) {
       setTasks(prevTasks => [...prevTasks, state.task]);
     }
   }, [state]);
 
-  // Initial load - simulate fetching tasks (replace with actual API call)
+  // Fetch tasks from database in supabase
   useEffect(() => {
-    // In a real app, you would fetch tasks from API/database here
-    // For now, just initialize with empty array to show empty state
-    setTimeout(() => {
-      setTasks([]);
+    const loadTasks = async () => {
+      setIsLoading(true);
+      const data = await fetchTasks();
+      setTasks(data || []);
       setIsLoading(false);
-    }, 500);
+    };
+    loadTasks();
   }, []);
 
   return (
@@ -76,7 +102,7 @@ export default function TodoPage() {
                 ) : tasks.filter(task => task.status === 'todo').length === 0 ? (
                   <div className="space-y-3">
                     <div className="flex flex-col items-center justify-center py-6 text-center">
-                      <p className="text-[#6772FE] font-medium">There is no todo</p>
+                      <p className="text-[#6772FE] font-semibold">There is no todo</p>
                       <p className="text-xs text-gray-400 mt-1 mb-3">Add a new task to get started</p>
                       <Button 
                         variant="outline" 

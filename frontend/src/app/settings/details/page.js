@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { usePathname } from 'next/navigation'
 import Link from "next/link"
 import { useState } from 'react'
-import { supabase } from '../../../../lib/supabaseClient';
+import { supabase } from '../../../lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
 export default function SettingsDetailsPage() {

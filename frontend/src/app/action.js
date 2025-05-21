@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabaseClient';
 
 export async function addTask(prevState, formData) {
   try {
@@ -29,7 +31,7 @@ export async function addTask(prevState, formData) {
       description: taskDescription,
       deadline: taskDeadline,
       tag: taskTag,
-      timestamp: taskTimestamp,
+      created_at: taskTimestamp,
       status: taskStatus,
     };
 
@@ -42,16 +44,14 @@ export async function addTask(prevState, formData) {
       };
     }
 
-    // Here you would typically save the data to a database
-    // For example:
-    // await db.task.create({
-    //   data: {
-    //     name: taskName,
-    //     description: taskDescription,
-    //     deadline: taskDeadline,
-    //     tag: taskTag,
-    //   },
-    // });
+    // Insert the task into Supabase
+    const { data, error } = await supabase
+      .from('task')
+      .insert([task]);
+
+    if (error) {
+      throw new Error(error.message);
+    }
 
     // Revalidate the path to refresh data
     revalidatePath("/");
@@ -61,7 +61,7 @@ export async function addTask(prevState, formData) {
       message: `Todo berhasil ditambahkan, ${taskName}!`,
       success: true,
       debug: `Task added at ${new Date().toISOString()}`,
-      task: task // Include the task data in the response for verification
+      task: data ? data[0] : task // Return the inserted task from Supabase
     };
   } catch (error) {
     console.error("Error adding task:", error);

@@ -3,9 +3,9 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { UserCircleIcon, LucideEye, LucideEyeClosed } from 'lucide-react';
 import Image from 'next/image';
-import { supabase } from '../../../lib/supabaseClient';
+import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
-import { translateSupabaseError } from '../../../lib/translateError';
+import { translateSupabaseError } from '../../lib/translateError';
 
 export default function LoginPage() {
   const router = useRouter();
