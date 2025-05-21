@@ -5,10 +5,13 @@ import { revalidatePath } from "next/cache";
 export async function addTask(prevState, formData) {
   try {
     // Extract the form data properly using FormData
-    const taskName = formData.get("taskName");
-    const taskDescription = formData.get("taskDescription");
-    const taskDeadline = formData.get("taskDeadline");
-    const taskTag = formData.get("taskTag");
+    const taskId = await new Date().getTime();
+    const taskName = await formData.get("taskName");
+    const taskDescription = await formData.get("taskDescription");
+    const taskDeadline = await formData.get("taskDeadline");
+    const taskTag = await formData.get("taskTag");
+    const taskTimestamp = new Date().toISOString();
+    const taskStatus = "todo";
 
     // More visible logging - these will show in your terminal where Next.js is running
     console.log("\n========== SERVER ACTION CALLED ==========");
@@ -21,11 +24,13 @@ export async function addTask(prevState, formData) {
     // For development purposes, you can also log to the response
     // This won't be visible in production but can help during development
     const task = {
+      id: taskId,  
       name: taskName,
       description: taskDescription,
       deadline: taskDeadline,
       tag: taskTag,
-      timestamp: new Date().toISOString()
+      timestamp: taskTimestamp,
+      status: taskStatus,
     };
 
     // Validate the data
