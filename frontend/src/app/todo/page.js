@@ -110,14 +110,6 @@ export default function TodoPage() {
               </CardContent>
             </div>
 
-            {/* In Progress Column */}
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between mb-4 border-2 rounded-sm p-3">
-                <h2 className="text-sm font-medium">In Progress</h2>
-              </div>
-              <CardContent className="p-4">{/* Empty state */}</CardContent>
-            </div>
-
             {/* Completed Column */}
             <div className="flex flex-col">
               <div className="flex items-center justify-between mb-4 border-2 rounded-sm p-3">
