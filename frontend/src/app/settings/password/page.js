@@ -2,9 +2,11 @@
 import PageLayout from "@/components/PageLayout"
 import Image from "next/image"
 import { UserCircleIcon, PencilIcon, LucideEye, LucideEyeClosed } from "lucide-react"
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from "next/link"
 import { useState } from 'react'
+import { supabase } from '../../../../lib/supabaseClient.js';
+import { translateSupabaseError } from '../../../../lib/translateError.js';
 
 export default function SettingsPasswordPage() {
   const [oldPassword, setOldPassword] = useState('');
@@ -13,12 +15,58 @@ export default function SettingsPasswordPage() {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showNewConfirm, setShowNewConfirm] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const pathname = usePathname();
 
   const handleSave = async (e) => {
     e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
 
+    // Validate passwords match
+    if (newPassword !== newConfirm) {
+      setErrorMsg('New password and confirmation password do not match');
+      return;
+    }
+
+    // Validate password length
+    if (newPassword.length < 6) {
+      setErrorMsg('New password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      // First verify the old password by attempting to sign in
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: (await supabase.auth.getUser()).data.user.email,
+        password: oldPassword,
+      });
+
+      if (signInError) {
+        setErrorMsg('Current password is incorrect');
+        return;
+      }
+
+      // Update the password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (updateError) {
+        setErrorMsg(translateSupabaseError(updateError));
+      } else {
+        setSuccessMsg('Password updated successfully');
+        // Clear the form
+        setOldPassword('');
+        setNewPassword('');
+        setNewConfirm('');
+      }
+    } catch (error) {
+      setErrorMsg('An unexpected error occurred');
+      console.error('Error updating password:', error);
+    }
   };
 
   const navSettings = [
@@ -79,7 +127,7 @@ export default function SettingsPasswordPage() {
                 <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md">
                 Cancel
                 </Link>
-                <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md">
+                <button type="submit" className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md">
                 Save
                 </button>
             </div>
@@ -94,6 +142,12 @@ export default function SettingsPasswordPage() {
         </div>
 
         <div className="p-6 min-[636px]:pl-16">
+            {errorMsg && (
+                <div className="text-red-500 text-sm mb-4">{errorMsg}</div>
+            )}
+            {successMsg && (
+                <div className="text-green-500 text-sm mb-4">{successMsg}</div>
+            )}
             <div className="flex flex-col gap-5">
                 <div className="flex flex-col">
                     <label className="text-[#232360]">Old Password</label>
