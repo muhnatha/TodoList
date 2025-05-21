@@ -45,12 +45,22 @@ export default function TaskForm({
           <div className='md:grid md:grid-cols-2 md:gap-4'>
             <div className='flex flex-col gap-1'>
               <label htmlFor='taskDeadline' className='font-semibold'>Deadline</label>
-              <input
-                type='date'
-                name='taskDeadline'
-                id='taskDeadline'
-                className='border-1 rounded-md py-1 px-3 bg-[#6772FE]/20 w-full'
-              />
+              <div className='flex gap-2 w-full'>
+                <input
+                  type='date'
+                  name='taskDeadline'
+                  id='taskDeadline'
+                  className='border-1 rounded-md py-1 px-3 bg-[#6772FE]/20 w-1/2'
+                  required
+                />
+                <input
+                  type='time'
+                  name='taskDeadlineTime'
+                  id='taskDeadlineTime'
+                  className='border-1 rounded-md py-1 mr-1 px-3 bg-[#6772FE]/20 w-1/2'
+                  required
+                />
+              </div>
             </div>
 
             <div className='flex flex-row md:flex-col gap-2 md:gap-1 mt-6 md:mt-0'>

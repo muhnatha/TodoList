@@ -1,7 +1,7 @@
 'use client'
 
 import PageLayout from "@/components/PageLayout"
-import { React, useState } from 'react'
+import { React, useState, useEffect } from 'react'
 import { Calendar } from "@/components/ui/calendar"
 import { Calendar as BigCalendar, momentLocalizer, dateFnsLocalizer } from 'react-big-calendar'
 import moment from 'moment';
@@ -10,6 +10,7 @@ import parse from 'date-fns/parse';
 import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { supabase } from '@/lib/supabaseClient'
 
 // Lokalisasi ke time indonesia
 moment.locale("idn");
@@ -24,25 +25,63 @@ const localizer = dateFnsLocalizer({
 });
 
 // Contoh data dari to-do yang akan ditampilkan di calendar
-const exampleTasks = [
-  { id: 1, title: 'Finish report', deadline: '2025-05-20T17:00:00' },
-  { id: 2, title: 'Team meeting prep', deadline: '2025-05-22T09:00:00' },
-  { id: 3, title: 'Code review', deadline: '2025-05-25T14:30:00' },
-  { id: 4, title: 'Tugas CC', deadline: '2025-05-20T14:30:00' },
-  { id: 5, title: 'Tugas CC 2', deadline: new Date(moment().add(3, "days")) },
-];
+// const exampleTasks = [
+//   { id: 1, title: 'Finish report', deadline: '2025-05-20T17:00:00' },
+//   { id: 2, title: 'Team meeting prep', deadline: '2025-05-22T09:00:00' },
+//   { id: 3, title: 'Code review', deadline: '2025-05-25T14:30:00' },
+//   { id: 4, title: 'Tugas CC', deadline: '2025-05-20T14:30:00' },
+//   { id: 5, title: 'Tugas CC 2', deadline: new Date(moment().add(3, "days")) },
+// ];
+
+async function fetchTasks() {
+  const { data, error } = await supabase
+    .from('task')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error("Error fetching tasks:", error);
+    return [];
+  }
+
+  console.log("Fetched tasks:", data);
+  return data;
+}
 
 export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [tasks, setTasks] = useState(exampleTasks);
-  console.log(tasks)
+  const [tasks, setTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+      const loadTasks = async () => {
+        setIsLoading(true);
+        const data = await fetchTasks();
+        setTasks(data || []);
+        setIsLoading(false);
+      };
+      loadTasks();
+    }, []);
+
   const bigEvents = Array.isArray(tasks)
-    ? tasks.map(task => ({
-        id: task.id,
-        title: task.title,
-        start: new Date(task.deadline),
-        end: new Date(task.deadline),
-      }))
+    ? tasks.map(task => {
+        // Combine date and hour if both exist
+        let startDateTime;
+        if (task.deadline && task.hour) {
+          // Assume task.deadline is 'YYYY-MM-DD' and task.hour is 'HH:mm'
+          startDateTime = new Date(`${task.deadline}T${task.hour}`);
+        } else if (task.deadline) {
+          startDateTime = new Date(task.deadline);
+        } else {
+          startDateTime = new Date(); // fallback
+        }
+        return {
+          id: task.id,
+          title: task.name,
+          start: startDateTime,
+          end: startDateTime,
+        };
+      })
     : [];
 
   return (

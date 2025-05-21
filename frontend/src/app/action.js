@@ -1,7 +1,5 @@
 "use server";
-
 import { revalidatePath } from "next/cache";
-import { createClient } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient';
 
 export async function addTask(prevState, formData) {
@@ -11,28 +9,31 @@ export async function addTask(prevState, formData) {
     const taskName = await formData.get("taskName");
     const taskDescription = await formData.get("taskDescription");
     const taskDeadline = await formData.get("taskDeadline");
+    const taskHour = await formData.get("taskDeadlineTime");
     const taskTag = await formData.get("taskTag");
-    const taskTimestamp = new Date().toISOString();
+    const taskCreatedTime = new Date().toISOString();
     const taskStatus = "todo";
+    const taskCompletedTime = null;
 
     // More visible logging - these will show in your terminal where Next.js is running
     console.log("\n========== SERVER ACTION CALLED ==========");
     console.log("👉 Task Name:", taskName);
     console.log("👉 Description:", taskDescription);
-    console.log("👉 Deadline:", taskDeadline);
+    console.log("👉 Deadline:", taskDeadline + " ", taskHour);
     console.log("👉 Tag:", taskTag);
     console.log("==========================================\n");
 
-    // For development purposes, you can also log to the response
     // This won't be visible in production but can help during development
     const task = {
       id: taskId,  
       name: taskName,
       description: taskDescription,
       deadline: taskDeadline,
+      hour: taskHour,
       tag: taskTag,
-      created_at: taskTimestamp,
+      created_at: taskCreatedTime,
       status: taskStatus,
+      completed_at: taskCompletedTime
     };
 
     // Validate the data

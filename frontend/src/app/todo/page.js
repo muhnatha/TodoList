@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
 import { addTask } from '../action'
 import { useActionState } from 'react'
-import { CirclePlus, Calendar, Tag } from "lucide-react"
+import { CirclePlus, Calendar, Tag, Clock } from "lucide-react"
 import TaskForm from '@/components/TaskForm'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -34,27 +34,23 @@ export default function TodoPage() {
   const [showForm, setShowForm] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [status, setStatus] = useState(initialState);
 
-  // Update Task status to complete (masih error)
-  const updateTaskStatus = async (taskId) => {
-    const updatedTask = tasks.find(task => task.id === taskId);
-    if (!updatedTask) return;
-    setIsLoading(true);
-    const { data, error } = await supabase
+  // Function to update task status of task
+  async function updateTaskStatus(taskId) {
+    const { error } = await supabase
       .from('task')
-      .update({ status: 'completed' })
-      .eq('id', taskId)
-      .select();
-    if (!error) {
-      // Refetch tasks to ensure UI is in sync with DB
-      const data = await fetchTasks();
-      setTasks(data || []);
-    } else {
-      console.error('Failed to update task status:', error);
+      .update({ completed_at: new Date().toISOString(), status: 'completed' })
+      .eq('id', taskId);
+
+    if (error) {
+      console.error("Error updating task status:", error);
+      return;
     }
-    setIsLoading(false);
-  };
+
+    // Refetch tasks from DB to ensure UI is in sync
+    const data = await fetchTasks();
+    setTasks(data || []);
+  }
 
   // Effect to update tasks when a new task is added
   useEffect(() => {
@@ -72,6 +68,25 @@ export default function TodoPage() {
       setIsLoading(false);
     };
     loadTasks();
+  }, []);
+
+  // Auto-delete completed tasks older than 5 days
+  useEffect(() => {
+    const deleteOldCompletedTasks = async () => {
+      const cutoff = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+      const { error } = await supabase
+        .from('task')
+        .delete()
+        .eq('status', 'completed')
+        .lt('completed_at', cutoff);
+      if (error) {
+        console.error('Error auto-deleting completed tasks:', error);
+      } else {
+        const data = await fetchTasks();
+        setTasks(data || []);
+      }
+    };
+    deleteOldCompletedTasks();
   }, []);
 
   return (
@@ -116,16 +131,27 @@ export default function TodoPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-3 2xl:grid 2xl:grid-cols-3 2xl:gap-4">
+                  <div className="flex flex-col gap-3 2xl:grid 2xl:grid-cols-3 2xl:gap-4 ">
                     {tasks.filter(task => task.status === 'todo').map((task, index) => (
-                      <div key={index} className="p-3 border rounded-md hover:bg-gray-50">
-                        <h3 className="font-medium">{task.name}</h3>
-                        {task.description && <p className="text-gray-600 text-sm mt-1">{task.description}</p>}
+                      <div key={index} className="p-3 border rounded-md hover:bg-gray-50 flex flex-col justify-between">
+                        <div>
+                          <h3 className="font-medium">{task.name}</h3>
+                          {task.description === null ?
+                            <p className="text-gray-600/30 text-sm mt-1">Tidak ada deskrpsi</p> :
+                            <p className="text-gray-600 text-sm mt-1 text-justify">{task.description}</p>
+                          }
+                        </div>
                         <div className="flex gap-3 mt-2">
                           {task.deadline && (
                             <div className="flex items-center gap-1 text-xs text-[#6772FE]">
                               <Calendar size={12} />
                               <span>{new Date(task.deadline).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                          {task.hour && (
+                            <div className="flex items-center gap-1 text-xs text-[#6772FE]">
+                              <Clock size={12} />
+                              <span>{task.hour.slice(0,5)}</span>
                             </div>
                           )}
                           {task.tag && (
@@ -140,7 +166,7 @@ export default function TodoPage() {
                               variant="outline"
                               size="xs"
                               className="text-xs ml-auto p-3 bg-[#6772FE] hover:bg-[#E8EAFF] text-white hover:cursor-pointer"
-                              onClick={() => updateTaskStatus(task.id, 'completed')}
+                              onClick={() => updateTaskStatus(task.id)}
                             >
                               Mark as Completed
                             </Button>
@@ -151,9 +177,9 @@ export default function TodoPage() {
                     <div className="flex flex-col items-center justify-center py-6 text-center">
                       <p className="text-xs text-gray-400 mt-1 mb-3">Add a new task</p>
                       <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-xs flex items-center gap-1"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs flex items-center gap-1 hover:cursor-pointer"
                         onClick={() => setShowForm(true)}
                       >
                         <CirclePlus size={14} />
@@ -180,20 +206,19 @@ export default function TodoPage() {
                     <p className="text-[#6772FE] font-semibold">No completed tasks</p>
                   </div>
                 ) : (
-                    tasks.filter(task => task.status === 'completed').map((task, index) => (
-                      <div key={index} className="p-3 border rounded-md hover:bg-gray-50">
-                        <h3 className="font-medium">{task.name}</h3>
-                        {task.description && <p className="text-gray-600 text-sm mt-1">{task.description}</p>}
-                        <div className="flex gap-3 mt-2">
-                          {task.tag && (
-                            <div className="flex items-center gap-1 text-xs text-[#6772FE]">
-                              <Tag size={12} />
-                              <span>{task.tag}</span>
-                            </div>
-                          )}
-                        </div>
+                  tasks.filter(task => task.status === 'completed').map((task, index) => (
+                    <div key={index} className="p-3 border rounded-md hover:bg-gray-50">
+                      <h3 className="font-medium">{task.name}</h3>
+                      <div className="flex gap-3 mt-2">
+                        {task.tag && (
+                          <div className="flex items-center gap-1 text-xs text-[#6772FE]">
+                            <Tag size={12} />
+                            <span>{task.tag}</span>
+                          </div>
+                        )}
                       </div>
-                    ))
+                    </div>
+                  ))
                 )}
               </CardContent>
             </div>
