@@ -15,11 +15,19 @@ const initialState = {
 };
 
 async function fetchTasks() {
+  // Get user id from supabase auth
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    console.error("Error fetching user:", userError);
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('task')
     .select('*')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false });
-  
+
   if (error) {
     console.error("Error fetching tasks:", error);
     return [];
