@@ -5,8 +5,8 @@ import { UserCircleIcon, PencilIcon, LucideEye, LucideEyeClosed } from "lucide-r
 import { usePathname, useRouter } from 'next/navigation'
 import Link from "next/link"
 import { useState } from 'react'
-import { supabase } from '../../../../lib/supabaseClient.js';
-import { translateSupabaseError } from '../../../../lib/translateError.js';
+import { supabase } from '@/lib/supabaseClient.js';
+import { translateSupabaseError } from '@/lib/translateError.js';
 
 export default function SettingsPasswordPage() {
   const [oldPassword, setOldPassword] = useState('');
