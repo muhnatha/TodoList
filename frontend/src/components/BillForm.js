@@ -1,4 +1,4 @@
-/* components/TaskForm.jsx */
+// form untuk konfirmasi langganan
 'use client'
 import React from 'react'
 
@@ -18,7 +18,7 @@ export default function TaskForm({
     <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white z-10 border-2 rounded-md p-4 w-1/2 2xl:w-1/4'>
       <form action={handleFormSubmit} className='w-full flex justify-start items-center'>
         <div className='flex flex-col gap-3 w-full'>
-          <h1 className='font-bold text-center text-xl'>Tambah Todo</h1>
+          <h1 className='font-bold text-center text-xl'>Konfirmasi Pembayaran</h1>
           <button
             type='button'
             onClick={() => setShowForm(false)}

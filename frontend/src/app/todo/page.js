@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
 import { addTask } from '../action'
 import { useActionState } from 'react'
-import { CirclePlus, Calendar, Tag, Clock } from "lucide-react"
+import { CirclePlus, Calendar, Tag, Clock, SquareX } from "lucide-react"
 import TaskForm from '@/components/TaskForm'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -37,11 +37,54 @@ async function fetchTasks() {
   return data;
 }
 
+async function fetchProfiles() {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    console.error("Error fetching user:", userError);
+    return [];
+  }
+
+  const{data: profile, error} = await supabase
+    .from('profiles')
+    .select('todo_count')
+    .eq('id', user.id);
+
+  if (error) {
+    console.error("Error fetching profile:", error);
+    return [];
+  }
+
+  console.log("Fetched profile:", profile);
+  return profile;
+}
+
 export default function TodoPage() {
   const [state, formAction] = useActionState(addTask, initialState);
   const [showForm, setShowForm] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [taskCount, setTaskCount] = useState(0);
+
+  useEffect(() => {
+     const loadTaskCount = async () => {
+       try {
+         const profilesArray = await fetchProfiles(); // fetchProfiles returns an array
+
+         if (profilesArray && profilesArray.length > 0 && profilesArray[0].hasOwnProperty('todo_count')) {
+           setTaskCount(profilesArray[0].todo_count);
+         } else {
+           // No profile found or todo_count is missing
+           setTaskCount(0); // Or handle as an error, e.g., setTaskCount(null) and display a message
+           console.log("No profile found or todo_count missing. Profiles array:", profilesArray);
+         }
+       } catch (error) {
+         console.error("Error in loadTaskCount:", error);
+         setTaskCount(0); // Or handle error appropriately
+       }
+     };
+
+     loadTaskCount();
+   }, []);
 
   // Function to update task status of task
   async function updateTaskStatus(taskId) {
@@ -106,6 +149,7 @@ export default function TodoPage() {
             <div className="flex flex-col">
               <div className="flex items-center justify-between mb-4 border-2 rounded-sm p-3">
                 <h2 className="text-sm font-medium">To Do</h2>
+                <h2 className="text-sm font-medium">Limit: {taskCount}</h2>
               </div>
               {/* Task Form */}
               {showForm &&  (
@@ -136,6 +180,63 @@ export default function TodoPage() {
                         <CirclePlus size={14} />
                         <span>Add Task</span>
                       </Button>
+                    </div>
+                  </div>
+                ) : tasks.filter(task => task.status === 'todo').length === taskCount ?(
+                    <div className="flex flex-col gap-3 2xl:grid 2xl:grid-cols-3 2xl:gap-4 ">
+                    {tasks.filter(task => task.status === 'todo').map((task, index) => (
+                      <div key={index} className="p-3 border rounded-md hover:bg-gray-50 flex flex-col justify-between">
+                        <div>
+                          <h3 className="font-medium">{task.name}</h3>
+                          {task.description === null ?
+                            <p className="text-gray-600/30 text-sm mt-1">Tidak ada deskrpsi</p> :
+                            <p className="text-gray-600 text-sm mt-1 text-justify">{task.description}</p>
+                          }
+                        </div>
+                        <div className="flex gap-3 mt-2">
+                          {task.deadline && (
+                            <div className="flex items-center gap-1 text-xs text-[#6772FE]">
+                              <Calendar size={12} />
+                              <span>{new Date(task.deadline).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                          {task.hour && (
+                            <div className="flex items-center gap-1 text-xs text-[#6772FE]">
+                              <Clock size={12} />
+                              <span>{task.hour.slice(0,5)}</span>
+                            </div>
+                          )}
+                          {task.tag && (
+                            <div className="flex items-center gap-1 text-xs text-[#6772FE]">
+                              <Tag size={12} />
+                              <span>{task.tag}</span>
+                            </div>
+                          )}
+                          {/* Button to mark as completed */}
+                          {task.status !== 'completed' && (
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              className="text-xs ml-auto p-3 bg-[#6772FE] hover:bg-[#E8EAFF] text-white hover:cursor-pointer"
+                              onClick={() => updateTaskStatus(task.id)}
+                            >
+                              Mark as Completed
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <p className="text-md text-red-500 mt-1 mb-3">Mencapai batas penggunaan tugas, tambah kuota dengan menekan tombol di bawah</p>
+                      <a href='/settings/billing'>
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          className="text-md flex items-center gap-1 hover:cursor-pointer hover:bg-[#6772FE] hover:text-white"
+                        >
+                          <span>Tambah kuota</span>
+                        </Button>
+                      </a>
                     </div>
                   </div>
                 ) : (

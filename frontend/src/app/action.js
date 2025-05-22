@@ -124,4 +124,50 @@ export async function addTask(prevState, formData) {
       debug: `Error: ${error.message}`
     };
   }
-}
+};
+
+export async function confirmBilling(formData) {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    supabaseUrl,
+    supabaseAnonKey,
+    {
+      cookies: {
+      getAll() {
+        // cookies().getAll() returns an array of { name, value }
+        return cookieStore.getAll().map(({ name, value }) => ({ name, value }));
+      },
+      setAll(cookies) {
+        // cookies is an array of { name, value, ...options }
+        for (const { name, value, ...options } of cookies) {
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch (error) {
+            console.warn("Could not set cookie using object notation in setAll");
+          }
+        }
+      },
+    },
+  });
+
+  try {
+    // Get the current authenticated user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error("Authentication error in addTask:", authError?.message || "User not found.");
+      return {
+        message: "Autentikasi gagal. Silakan login kembali.",
+        success: false,
+        debug: authError ? authError.message : "No active user session."
+      };
+    }
+  } catch (error) {
+    console.error("Error adding task:", error);
+    return {
+      message: "Failed to add task: " + error.message,
+      success: false,
+      debug: `Error: ${error.message}`
+    };
+  }
+};
