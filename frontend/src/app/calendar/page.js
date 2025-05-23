@@ -45,6 +45,7 @@ async function fetchTasks() {
     .from('task')
     .select('*')
     .eq('user_id', user.id)
+    .eq('status', 'todo')
     .order('created_at', { ascending: false });
 
   if (error) {

@@ -151,10 +151,10 @@ export default function TodoPage() {
     loadTasks();
   }, []); // Runs once on mount
 
-  // Auto-delete completed tasks older than 5 days
+  // Auto-delete completed tasks older than 1 day
   useEffect(() => {
     const deleteOldCompletedTasks = async () => {
-      const cutoff = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+      const cutoff = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
       const { error } = await supabase
         .from('task') // Ensure your table name is correct
         .delete()
@@ -187,7 +187,7 @@ export default function TodoPage() {
 
   const visibleTodoTasks = sortedTodoTasks.slice(0, taskCountQuota);
   const blurredTodoTasks = sortedTodoTasks.slice(taskCountQuota);
-  const isOverQuota = sortedTodoTasks.length > taskCountQuota;
+  const isOverQuota = sortedTodoTasks.length >= taskCountQuota;
   const actualTodoTaskCount = sortedTodoTasks.length;
 
   return (
@@ -313,8 +313,7 @@ export default function TodoPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full mt-auto bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium py-2 transition-colors"
-                            onClick={() => updateTaskStatus(task.id, 'completed')}
+                            className="w-full mt-auto bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium py-2 transition-colors hover:cursor-not-allowed"
                           >
                             Complete (Over Quota)
                           </Button>
