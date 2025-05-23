@@ -1,25 +1,112 @@
 'use client'
 import PageLayout from "@/components/PageLayout"
 import Image from "next/image"
-import { UserCircleIcon, PencilIcon, Edit, LogOut } from "lucide-react"
+import { PencilIcon, Edit, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { usePathname } from 'next/navigation'
 import Link from "next/link"
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+
+async function fetchUserProfile() {
+  // Get the currently authenticated user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    console.error("Error fetching user or no user logged in:", userError?.message || "No user session");
+    return null; // Return null if no user or error
+  }
+
+  // Fetch the profile for this user
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError) {
+    if (profileError.code !== 'PGRST116') { // PGRST116 means 0 rows, not necessarily an "error"
+        console.error("Error fetching profile from Supabase:", profileError.message);
+    } else {
+        console.log("No profile found for user ID:", user.id);
+    }
+    return null; // Return null if profile not found or error
+  }
+  
+  console.log("Fetched user profile from Supabase:", profile);
+  return profile; // Returns the profile object or null
+}
 
 export default function SettingsDetailsPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [taskCount, setTaskCount] = useState(5);
+  const [notesCount, setNotesCount] = useState(3);
+  const [profileId, setProfileId] = useState('');
   const [isFirstNameDisabled, setIsFirstNameDisabled] = useState(true);
   const [isLastNameDisabled, setIsLastNameDisabled] = useState(true);
   const [isEmailDisabled, setIsEmailDisabled] = useState(true);
   const [isPhoneDisabled, setIsPhoneDisabled] = useState(true);
   const pathname = usePathname();
-  const router = useRouter(); 
+  const router = useRouter();
+  
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        const userProfile = await fetchUserProfile();
+
+        if (userProfile) {
+          // Destructure with default values to handle missing properties gracefully
+          const {
+            id = '',
+            email = '',
+            first_name = '',
+            last_name = '',
+            phone = '',
+            todo_count = 5,
+            notes_count = 3
+          } = userProfile;
+
+          // Set all states
+          setProfileId(id ?? '');
+          setEmail(email ?? '');
+          setFirstName(first_name ?? '');
+          setLastName(last_name ?? '');
+          setPhone(phone ?? '');
+          setTaskCount(todo_count ?? 5);
+          setNotesCount(notes_count ?? 3);
+
+          if (!id) console.error("Profile ID not found in fetched data, even after destructuring.");
+          if (!email && id) console.warn("Email not found in profile for user:", id); // Only warn if profile ID exists
+
+        } else {
+          console.log("No profile data loaded for the user. Using default states.");
+          // Reset to defaults if no profile (optional, if you want explicit reset)
+          setProfileId('');
+          setEmail('');
+          setFirstName('');
+          setLastName('');
+          setPhone('');
+          setTaskCount(5);
+          setNotesCount(3);
+        }
+      } catch (error) {
+        console.error("Error in fetch:", error);
+        // Reset all states to default on error
+        setProfileId('');
+        setEmail('');
+        setFirstName('');
+        setLastName('');
+        setPhone('');
+        setTaskCount(0);
+        setNotesCount(0);
+      }
+    };
+
+    loadInitialData();
+  }, []);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -106,7 +193,7 @@ export default function SettingsDetailsPage() {
                 Save
                 </button>
             </div>
-            </div>
+        </div>
 
         <div className="p-6"> 
             <nav className="text-black font-semibold">
@@ -217,10 +304,26 @@ export default function SettingsDetailsPage() {
       <div className="pl-6 min-[636px]:pl-15 pb-5">
         <div className="border-1 rounded-lg w-2/3 md:w-1/2 text-[#232360]">
             <p className="px-5 pt-5">Your package</p>
-            <div className="flex flex-row justify-between items-center px-5 ">
-                <h1 className="font-bold text-3xl md:text-4xl">Free</h1>
-                <Image src="/toogas2.svg" alt="Toogas" width={96} height={96}/>
-            </div>
+            { taskCount <= 5 && notesCount <= 3 ? (
+                <div className="flex flex-row justify-between items-center px-5 ">
+                    <h1 className="font-bold text-3xl md:text-4xl">Free</h1>
+                    <Image src="/toogas2.svg" alt="Toogas" width={96} height={96}/>
+                </div>
+            ) : taskCount > 5 || notesCount > 3 ? (
+                <div className="flex flex-row justify-between items-center px-5 ">
+                    <div className="flex flex-col gap-1">
+                        <h1 className="font-bold text-3xl md:text-4xl">Kuota</h1>
+                        <p className="text-sm">To-do: {taskCount} | Notes: {notesCount}</p>
+                    </div>
+                    <Image src="/toogas2.svg" alt="Toogas" width={96} height={96}/>
+                </div>
+            ) : (
+                <div className="flex flex-row justify-between items-center px-5 ">
+                    <h1 className="font-bold text-3xl md:text-4xl">Free</h1>
+                    <Image src="/toogas2.svg" alt="Toogas" width={96} height={96}/>
+                </div>
+            )}
+                
             <div className="flex flex-row gap-1">
                 <p className="opacity-50 pl-5 pb-5 text-sm">Choose another package!</p> 
                 <a href="/settings/billing" className="opacity-100 text-sm hover:underline">Click Here!</a>

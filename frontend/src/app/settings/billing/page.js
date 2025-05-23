@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react'
 import PageLayout from "@/components/PageLayout"
 import Image from "next/image"
-import { UserCircleIcon, PencilIcon } from "lucide-react"
+import { PencilIcon } from "lucide-react"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { usePathname } from 'next/navigation'
 import { useActionState } from 'react'
 import { confirmBilling } from '@/app/action'
@@ -51,6 +52,7 @@ export default function SettingsBillingPage() {
   const pathname = usePathname();
   const [taskCount, setTaskCount] = useState(0);
   const [profileId, setProfileId] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -76,28 +78,38 @@ export default function SettingsBillingPage() {
         console.error("Error in loadInitialData (useEffect):", error);
         setTaskCount(0);
         setProfileId('');
+      } finally {
+        setIsLoading(false);
       }
     };
 
     loadInitialData();
   }, []);
 
-  async function handleUpdateTodoCount(amountToAdd) {
+  async function handleUpdateTodoCount(newTargetCount) {
     if (!profileId) {
       console.error("Profile ID is not available. Cannot update todo count.");
       alert("Your profile data hasn't loaded yet. Please wait a moment and try again.");
       return;
     }
 
-    const newCalculatedCount = taskCount + amountToAdd;
-
-    // Update the database
+    // Ensure newTargetCount is a non-negative number
+    const countToUpdate = Math.max(0, Number(newTargetCount));
+    if (isNaN(countToUpdate)) {
+        console.error("Invalid target count provided:", newTargetCount);
+        alert("An invalid count was provided. Please try again.");
+        return;
+    }
+    
+    setIsLoading(true);
+    // Update the database with the new target count
     const { data: updatedData, error: updateError } = await supabase
       .from('profiles')
-      .update({ todo_count: newCalculatedCount })
+      .update({ todo_count: countToUpdate })
       .eq('id', profileId)
       .select('todo_count') // Select the updated field to confirm its new value
       .single();           // Expect a single object back
+    setIsLoading(false);
 
     if (updateError) {
       console.error("Error updating todo_count in Supabase:", updateError.message, updateError);
@@ -106,12 +118,13 @@ export default function SettingsBillingPage() {
     }
 
     if (updatedData && updatedData.hasOwnProperty('todo_count')) {
-      console.log("Successfully updated todo_count to:", updatedData.todo_count);
+      console.log("Successfully updated todo_count. New count from DB:", updatedData.todo_count);
       setTaskCount(updatedData.todo_count); // Update state with the confirmed new count
       alert(`Your to-do quota has been updated to ${updatedData.todo_count}!`);
     } else {
-      console.warn("Todo count update seemed successful, but no updated data was returned from DB or todo_count was missing. Check RLS and query. Current taskCount:", taskCount);
-
+      console.warn("Todo count update seemed successful, but no updated data was returned from DB or todo_count was missing. Check RLS and query.");
+      // Fallback: optimistically set the task count if DB doesn't return it, though this is less ideal.
+      // setTaskCount(countToUpdate); 
       alert("Quota updated, but couldn't confirm the new value immediately. Please refresh if needed.");
     }
   }
@@ -162,34 +175,33 @@ export default function SettingsBillingPage() {
       )}
 
       <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60] flex justify-between items-end">
-          <div className="flex items-end space-x-7">
-            <div className="relative">
-              <UserCircleIcon  
-                width={96}
-                height={96}
-                className="rounded-full bg-white"
-                style={{ objectFit: 'cover' }}
-              />
-              <button 
-                aria-label="Edit profile picture"
-                className="absolute bottom-1 right-1 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
-              >
-                <PencilIcon className="w-4 h-4" />
-              </button>
+            <div className="flex items-end space-x-7">
+                <div className="relative w-24 h-24 flex items-center justify-center">
+                    {/* Same with avatar icon in header */}
+                    <Avatar>
+                        <AvatarImage src="https://github.com/shadcn.png" className="size-15 rounded-full" />
+                        <AvatarFallback>CN</AvatarFallback>
+                    </Avatar>
+                    <button 
+                        aria-label="Edit profile picture"
+                        className="absolute bottom-3 right-3 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
+                    >
+                        <PencilIcon className="w-4 h-4" />
+                    </button>
+                </div>
+                <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#03030b]">
+                Settings
+                </h1>
             </div>
-            <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#232360]">
-              Settings
-            </h1>
-          </div>
 
-          <div className="flex space-x-3">
-            <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors  text-sm sm:text-md">
-              Cancel
-            </Link>
-            <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors  text-sm sm:text-md">
-              Save
-            </button>
-          </div>
+            <div className="flex space-x-3">
+                <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md">
+                Cancel
+                </Link>
+                <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md">
+                Save
+                </button>
+            </div>
         </div>
 
       <div className="p-6"> 
@@ -204,15 +216,20 @@ export default function SettingsBillingPage() {
         <div className="flex flex-row flex-wrap lg:flex-nowrap w-full items-center justify-center text-[#232360]">
           <p className="lg:w-20 text-center text-semibold">TO-DO LIST</p>
           <div className="flex flex-row gap-6 items-center w-full">
-            <a href="#" className="w-1/3 py-5 px-2 text-center lg:px-10 bg-[#D9D9D9] rounded-md hover:bg-[#A0A0A0]">
+            <div className="w-1/3 text-center lg:px-10 bg-[#D9D9D9] rounded-md hover:bg-[#A0A0A0]">
+              <Button
+                onClick={() => handleUpdateTodoCount(5)}
+                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
+              >
                 <div className="flex flex-col justify-center items-center">
                   <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">FREE</h1>
                   <p className="text-sm mt-8 mb-[-20] min-[756px]:mb-0">User got free 5 to-do items</p>
                 </div>
-            </a>
+              </Button>
+            </div>
             <div className="w-1/3 bg-[#8FEBFF] rounded-md hover:bg-[#1FABAF] transition-colors">
               <Button 
-                onClick={() => handleUpdateTodoCount(5)} 
+                onClick={() => handleUpdateTodoCount(taskCount + 5)} 
                 className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0" // Styling for button to fill card
               >
                 <div className="flex flex-col justify-center items-center text-center">
@@ -222,13 +239,18 @@ export default function SettingsBillingPage() {
                 </div>
               </Button>
             </div>
-            <a href="#" className="w-1/3 py-5 px-7 lg:px-10 bg-[#1EA7FF] rounded-md hover:bg-[#1E57AF]">
-              <div className="flex flex-col justify-center items-center">
-                <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">+10</h1>
-                <sub className="font-light">add 10 to-do items</sub>
-                <p className="text-sm mt-8">18.000/month</p>
-              </div>
-            </a>
+            <div className="w-1/3 lg:px-10 bg-[#1EA7FF] rounded-md hover:bg-[#1E57AF]">
+              <Button 
+                onClick={() => handleUpdateTodoCount(taskCount + 10)} 
+                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0" // Styling for button to fill card
+              >
+                <div className="flex flex-col justify-center items-center">
+                  <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">+10</h1>
+                  <sub className="font-light">add 10 to-do items</sub>
+                  <p className="text-sm mt-8">18.000/month</p>
+                </div>
+              </Button>
+            </div>
           </div>
         </div>
         <div className="flex flex-row flex-wrap lg:flex-nowrap w-full items-center justify-center text-[#232360] mb-5">

@@ -1,7 +1,8 @@
 'use client'
 import PageLayout from "@/components/PageLayout"
 import Image from "next/image"
-import { UserCircleIcon, PencilIcon, LucideEye, LucideEyeClosed } from "lucide-react"
+import { PencilIcon, LucideEye, LucideEyeClosed } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { usePathname, useRouter } from 'next/navigation'
 import Link from "next/link"
 import { useState } from 'react'
@@ -104,21 +105,20 @@ export default function SettingsPasswordPage() {
       <form onSubmit={handleSave}>
         <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60] flex justify-between items-end">
             <div className="flex items-end space-x-7">
-                <div className="relative">
-                <UserCircleIcon  
-                    width={96}
-                    height={96}
-                    className="rounded-full bg-white"
-                    style={{ objectFit: 'cover' }}
-                />
-                <button 
-                    aria-label="Edit profile picture"
-                    className="absolute bottom-1 right-1 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
-                >
-                    <PencilIcon className="w-4 h-4" />
-                </button>
+                <div className="relative w-24 h-24 flex items-center justify-center">
+                    {/* Same with avatar icon in header */}
+                    <Avatar>
+                        <AvatarImage src="https://github.com/shadcn.png" className="size-15 rounded-full" />
+                        <AvatarFallback>CN</AvatarFallback>
+                    </Avatar>
+                    <button 
+                        aria-label="Edit profile picture"
+                        className="absolute bottom-3 right-3 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
+                    >
+                        <PencilIcon className="w-4 h-4" />
+                    </button>
                 </div>
-                <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#232360]">
+                <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#03030b]">
                 Settings
                 </h1>
             </div>
@@ -127,11 +127,11 @@ export default function SettingsPasswordPage() {
                 <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md">
                 Cancel
                 </Link>
-                <button type="submit" className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md">
+                <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md">
                 Save
                 </button>
             </div>
-            </div>
+        </div>
 
         <div className="p-6"> 
             <nav className="text-black font-semibold">
