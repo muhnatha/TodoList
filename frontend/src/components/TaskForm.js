@@ -72,17 +72,13 @@ export default function TaskForm({
 
             <div className='flex flex-row md:flex-col gap-2 md:gap-1 mt-6 md:mt-0'>
               <label htmlFor='taskTag' className='font-semibold'>Tag</label>
-              <select
+              <input
+                type='text'
                 name='taskTag'
                 id='taskTag'
+                placeholder='Masukkan tag'
                 className='border-1 rounded-md py-1 px-3 bg-[#6772FE]/20 w-full text-center'
-                required
-              >
-                <option value=''>Select a tag</option>
-                <option value='Cloud Computing'>Cloud Computing</option>
-                <option value='Personal'>Personal</option>
-                <option value='Urgent'>Urgent</option>
-              </select>
+              />
             </div>
           </div>
 
