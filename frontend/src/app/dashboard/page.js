@@ -289,7 +289,7 @@ export default function DashboardPage() {
               </p>
             )}
             <Link href="/settings/billing">
-              <Button variant="outline" className="w-full text-sky-600 border-sky-500 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-600 dark:hover:bg-sky-700/50">
+              <Button variant="outline" className="hover:cursor-pointer w-full text-sky-600 border-sky-500 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-600 dark:hover:bg-sky-700/50">
                 <DollarSign className="h-4 w-4 mr-2" /> Manage Quota / Upgrade
               </Button>
             </Link>
@@ -339,13 +339,8 @@ export default function DashboardPage() {
             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Quick Links</h3>
             <div className="space-y-3">
               <Link href="/todo">
-                <Button variant="default" className="w-full bg-sky-600 hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600">
+                <Button variant="default" className="hover:cursor-pointer w-full bg-sky-600 hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600">
                   <ListChecks className="h-4 w-4 mr-2" /> View My To-Do List
-                </Button>
-              </Link>
-              <Link href="/todo">
-                <Button variant="outline" className="w-full">
-                  <PlusCircle className="h-4 w-4 mr-2" /> Add New Task
                 </Button>
               </Link>
             </div>

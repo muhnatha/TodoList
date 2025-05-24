@@ -2,7 +2,7 @@
 
 import PageLayout from "@/components/PageLayout"
 import { React, useState, useEffect } from 'react'
-import { Calendar } from "@/components/ui/calendar"
+import { Calendar as ShadCalendar } from "@/components/ui/calendar"
 import { Calendar as BigCalendar, momentLocalizer, dateFnsLocalizer } from 'react-big-calendar'
 import moment from 'moment';
 import format from 'date-fns/format';
@@ -97,7 +97,7 @@ export default function CalendarPage() {
     <PageLayout title="CALENDAR">
       <div className="flex flex-col items-center justify-center mb-2 min-[994px]:justify-start min-[994px]:items-start min-[994px]:mb-0 min-[994px]:flex-row w-full">
         <div className="flex flex-col gap-2 text-center">
-          <Calendar
+          <ShadCalendar
             mode="single"
             selected={selectedDate}
             onSelect={(date) => {
