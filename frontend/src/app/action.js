@@ -54,6 +54,7 @@ export async function addTask(prevState, formData) {
     const taskCreatedTime = new Date().toISOString();
     const taskStatus = "todo";
     const taskCompletedTime = null;
+    let deadlineAtISO = null;
 
     // More visible logging - these will show in your terminal where Next.js is running
     console.log("\n========== SERVER ACTION: addTask ==========");
@@ -64,6 +65,18 @@ export async function addTask(prevState, formData) {
     console.log("Tag:", taskTag);
     console.log("Generated Task ID:", taskId);
     console.log("==========================================\n");
+
+    if (taskDeadline && taskHour) {
+    const [year, month, day] = taskDeadline.split('-').map(Number);
+    const [hours, minutes] = taskHour.split(':').map(Number);
+    const combinedDeadline = new Date(year, month - 1, day, hours, minutes);
+    if (!isNaN(combinedDeadline.getTime())) {
+        deadlineAtISO = combinedDeadline.toISOString();
+    } else {
+        // Handle invalid date/time combination
+        return { message: 'Invalid deadline date or time.', success: false, task: null };
+    }}
+    
 
     // Validate the data
     if (!taskName) {
@@ -90,6 +103,8 @@ export async function addTask(prevState, formData) {
       description: taskDescription,
       deadline: taskDeadline,
       hour: taskHour,
+      deadline_at: deadlineAtISO, 
+      due_soon_notified_at: null,
       tag: taskTag,
       created_at: taskCreatedTime,
       status: taskStatus,

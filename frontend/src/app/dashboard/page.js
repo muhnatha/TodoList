@@ -98,7 +98,7 @@ async function fetchTotalCompletedTasks() {
 
   const { data: completedTasks, error: completedTasksError } = await supabase
     .from('task_completion_log')
-    .select('id, completed_task_count, updated_at')
+    .select('id, completed_task_count')
     .eq('user_id', user.id);
 
   if (completedTasksError) {
@@ -127,7 +127,6 @@ export default function DashboardPage() {
   const [completionGraphData, setCompletionGraphData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState('');
-  const [completedTasks, setCompletedTasks] = useState(0); 
 
   useEffect(() => {
     async function loadDashboard() {

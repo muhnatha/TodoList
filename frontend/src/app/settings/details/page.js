@@ -26,14 +26,14 @@ async function fetchUserProfile() {
 
   if (profileError) {
     if (profileError.code !== 'PGRST116') { // PGRST116 means 0 rows, not necessarily an "error"
-        console.error("Error fetching profile from Supabase:", profileError.message);
+        console.error("Error fetching profile:", profileError.message);
     } else {
         console.log("No profile found for user ID:", user.id);
     }
     return null; // Return null if profile not found or error
   }
   
-  console.log("Fetched user profile from Supabase:", profile);
+  console.log("Fetched user profile:", profile);
   return profile; // Returns the profile object or null
 }
 
@@ -312,7 +312,7 @@ export default function SettingsDetailsPage() {
             ) : taskCount > 5 || notesCount > 3 ? (
                 <div className="flex flex-row justify-between items-center px-5 ">
                     <div className="flex flex-col gap-1">
-                        <h1 className="font-bold text-3xl md:text-4xl">Kuota</h1>
+                        <h1 className="font-bold text-3xl md:text-4xl">Quota</h1>
                         <p className="text-sm">To-do: {taskCount} | Notes: {notesCount}</p>
                     </div>
                     <Image src="/toogas2.svg" alt="Toogas" width={96} height={96}/>
