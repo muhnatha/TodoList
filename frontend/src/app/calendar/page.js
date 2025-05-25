@@ -24,15 +24,6 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-// Contoh data dari to-do yang akan ditampilkan di calendar
-// const exampleTasks = [
-//   { id: 1, title: 'Finish report', deadline: '2025-05-20T17:00:00' },
-//   { id: 2, title: 'Team meeting prep', deadline: '2025-05-22T09:00:00' },
-//   { id: 3, title: 'Code review', deadline: '2025-05-25T14:30:00' },
-//   { id: 4, title: 'Tugas CC', deadline: '2025-05-20T14:30:00' },
-//   { id: 5, title: 'Tugas CC 2', deadline: new Date(moment().add(3, "days")) },
-// ];
-
 async function fetchTasks() {
   // Get user id from supabase auth
   const { data: { user }, error: userError } = await supabase.auth.getUser();

@@ -74,7 +74,6 @@ async function fetchUserQuota() {
   return profile?.todo_count ?? 5; // Return todo_count or default 5 if null/undefined
 }
 
-
 export default function TodoPage() {
   const [state, formAction] = useActionState(addTask, initialState);
   const [showForm, setShowForm] = useState(false);
@@ -124,6 +123,35 @@ export default function TodoPage() {
       alert("Failed to update task status. Please try again."); // User feedback
       return;
     }
+
+    // Update completed_task_count in task_completion_log for the user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (!userError && user && newStatus === 'completed') {
+      // Fetch current completed_task_count
+      const { data: logData, error: fetchLogError } = await supabase
+        .from('task_completion_log')
+        .select('completed_task_count')
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchLogError && fetchLogError.code !== 'PGRST116') {
+        console.error("Error fetching task_completion_log:", fetchLogError.message);
+      } else {
+        const currentCount = logData?.completed_task_count || 0;
+        const { error: logError } = await supabase
+          .from('task_completion_log')
+          .update({
+            completed_task_count: currentCount + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+
+        if (logError) {
+          console.error("Error updating task_completion_log:", logError.message);
+        }
+      }
+    }
+
     console.log(`Task ${taskId} status updated to ${newStatus}`);
   }
 

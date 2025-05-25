@@ -63,7 +63,7 @@ const isThisWeek = (dateString) => {
 // --- End Helper Functions ---
 
 
-// --- Data Fetching Functions (fetchDashboardDataForUser - keep as is) ---
+// --- Data Fetching Functions (fetchDashboardDataForUser) ---
 async function fetchDashboardDataForUser() {
   const { data: authData, error: userError } = await supabase.auth.getUser();
   if (userError || !authData || !authData.user) {
@@ -91,6 +91,29 @@ async function fetchDashboardDataForUser() {
   }
   return { tasks: tasksData || [], quota: userQuota, user };
 }
+
+
+// Fetch all completed tasks for the user, including their completed_at date
+async function fetchTotalCompletedTasks() {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    console.error("Error fetching user:", userError?.message || "No user session");
+    return [];
+  }
+
+  const { data: completedTasks, error: completedTasksError } = await supabase
+    .from('task')
+    .select('id, completed_at')
+    .eq('user_id', user.id)
+    .eq('status', 'completed');
+
+  if (completedTasksError) {
+    console.error("Error fetching completed tasks:", completedTasksError.message);
+    return [];
+  }
+
+  return completedTasks;
+}
 // --- End Data Fetching ---
 
 export default function DashboardPage() {
@@ -111,11 +134,13 @@ export default function DashboardPage() {
   const [completionGraphData, setCompletionGraphData] = useState([]); // State for graph data
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState('');
+  const [completedTasks, setCompletedTasks] = useState(0); 
 
   useEffect(() => {
     async function loadDashboard() {
       setIsLoading(true);
       const { tasks, quota, user } = await fetchDashboardDataForUser();
+      const totalCompletedTasks = await fetchTotalCompletedTasks();
 
       if (user) {
         setUserName(user.user_metadata?.full_name || (user.email ? user.email.split('@')[0] : '') || 'User');
@@ -124,7 +149,7 @@ export default function DashboardPage() {
       }
 
       const activeTodos = tasks.filter(t => t.status === 'todo');
-      const completed = tasks.filter(t => t.status === 'completed');
+      const completed = totalCompletedTasks;
 
       // --- Calculate statistics (same as before) ---
       const dueToday = activeTodos.filter(t => t.deadline && isToday(t.deadline)).length;
@@ -179,8 +204,6 @@ export default function DashboardPage() {
         }
       });
       setCompletionGraphData(last7Days);
-      // --- End graph data preparation ---
-
       setIsLoading(false);
     }
     loadDashboard();
