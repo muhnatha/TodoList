@@ -65,8 +65,8 @@ export default function SettingsDetailsPage() {
             first_name = '',
             last_name = '',
             phone = '',
-            todo_count = 5,
-            notes_count = 3
+            todos_current_total_quota = 5,
+            notes_current_total_quota = 3
           } = userProfile;
 
           // Set all states
@@ -75,8 +75,8 @@ export default function SettingsDetailsPage() {
           setFirstName(first_name ?? '');
           setLastName(last_name ?? '');
           setPhone(phone ?? '');
-          setTaskCount(todo_count ?? 5);
-          setNotesCount(notes_count ?? 3);
+          setTaskCount(todos_current_total_quota ?? 5);
+          setNotesCount(notes_current_total_quota ?? 3);
 
           if (!id) console.error("Profile ID not found in fetched data, even after destructuring.");
           if (!email && id) console.warn("Email not found in profile for user:", id); // Only warn if profile ID exists
