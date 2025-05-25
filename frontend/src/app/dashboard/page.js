@@ -60,10 +60,7 @@ const isThisWeek = (dateString) => {
     lastDayOfWeek.setHours(23, 59, 59, 999);
     return date >= firstDayOfWeek && date <= lastDayOfWeek;
 };
-// --- End Helper Functions ---
 
-
-// --- Data Fetching Functions (fetchDashboardDataForUser) ---
 async function fetchDashboardDataForUser() {
   const { data: authData, error: userError } = await supabase.auth.getUser();
   if (userError || !authData || !authData.user) {
@@ -92,8 +89,6 @@ async function fetchDashboardDataForUser() {
   return { tasks: tasksData || [], quota: userQuota, user };
 }
 
-
-// Fetch all completed tasks for the user, including their completed_at date
 async function fetchTotalCompletedTasks() {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) {
@@ -113,7 +108,6 @@ async function fetchTotalCompletedTasks() {
 
   return completedTasks;
 }
-// --- End Data Fetching ---
 
 export default function DashboardPage() {
   const [dashboardStats, setDashboardStats] = useState({
@@ -130,7 +124,7 @@ export default function DashboardPage() {
     isOverQuota: false,
     tagSummary: {},
   });
-  const [completionGraphData, setCompletionGraphData] = useState([]); // State for graph data
+  const [completionGraphData, setCompletionGraphData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState('');
   const [completedTasks, setCompletedTasks] = useState(0); 
@@ -138,8 +132,8 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadDashboard() {
       setIsLoading(true);
-      const { tasks, quota, user } = await fetchDashboardDataForUser();
-      const totalCompletedTasks = await fetchTotalCompletedTasks();
+      const { tasks: allTasks, quota, user } = await fetchDashboardDataForUser();
+      const taskLogData = await fetchTotalCompletedTasks();
 
       if (user) {
         setUserName(user.user_metadata?.full_name || (user.email ? user.email.split('@')[0] : '') || 'User');
@@ -147,15 +141,19 @@ export default function DashboardPage() {
         setUserName('Guest');
       }
 
-      const activeTodos = tasks.filter(t => t.status === 'todo');
-      const completed = totalCompletedTasks;
+      const activeTodos = allTasks.filter(t => t.status === 'todo');
+      const actualTotalCompletedCount = (taskLogData && taskLogData.length > 0 && taskLogData[0].completed_task_count) 
+                                        ? taskLogData[0].completed_task_count 
+                                        : 0;
+      const trulyCompletedTasks = allTasks.filter(t => t.status === 'completed' && t.completed_at);
 
-      // --- Calculate statistics (same as before) ---
       const dueToday = activeTodos.filter(t => t.deadline && isToday(t.deadline)).length;
       const overdue = activeTodos.filter(t => t.deadline && isOverdue(t.deadline) && !isToday(t.deadline)).length;
-      const completedToday = completed.filter(t => t.completed_at && isToday(t.completed_at)).length;
-      const completedThisWeek = completed.filter(t => t.completed_at && isThisWeek(t.completed_at)).length;
-      const addedToday = tasks.filter(t => t.created_at && isToday(t.created_at)).length;
+      
+      const completedToday = trulyCompletedTasks.filter(t => isToday(t.completed_at)).length;
+      const completedThisWeek = trulyCompletedTasks.filter(t => isThisWeek(t.completed_at)).length;
+      
+      const addedToday = allTasks.filter(t => t.created_at && isToday(t.created_at)).length;
       const currentQuotaUsage = activeTodos.length;
       const calculatedQuotaPercentage = quota > 0 ? Math.min((currentQuotaUsage / quota) * 100, 100) : 0;
       const tags = activeTodos.reduce((acc, task) => {
@@ -166,11 +164,11 @@ export default function DashboardPage() {
 
       setDashboardStats({
         activeTodoCount: activeTodos.length,
-        totalCompletedCount: completed.length,
+        totalCompletedCount: actualTotalCompletedCount,
         dueTodayCount: dueToday,
         overdueCount: overdue,
-        completedTodayCount: completedToday,
-        completedThisWeekCount: completedThisWeek,
+        completedTodayCount: completedToday,        
+        completedThisWeekCount: completedThisWeek,   
         addedTodayCount: addedToday,
         quota: quota,
         quotaUsage: currentQuotaUsage,
@@ -179,21 +177,20 @@ export default function DashboardPage() {
         tagSummary: tags,
       });
 
-      // --- Prepare data for completion graph (last 7 days) ---
       const last7Days = [];
       const dayMap = new Map();
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        d.setHours(0,0,0,0); // Normalize to start of the day
-        const dateString = d.toISOString().split('T')[0]; // YYYY-MM-DD
-        const dayName = formatDate(d.toISOString(), { weekday: 'short' }); // Mon, Tue
+        d.setHours(0,0,0,0);
+        const dateString = d.toISOString().split('T')[0];
+        const dayName = formatDate(d.toISOString(), { weekday: 'short' });
         last7Days.push({ date: dateString, name: `${dayName} (${d.getDate()})`, completed: 0 });
         dayMap.set(dateString, last7Days[last7Days.length-1]);
       }
 
-      completed.forEach(task => {
-        if (task.completed_at) {
+      trulyCompletedTasks.forEach(task => {
+        if (task.completed_at) { 
           const completedDate = new Date(task.completed_at);
           completedDate.setHours(0,0,0,0);
           const completedDateString = completedDate.toISOString().split('T')[0];
@@ -207,6 +204,7 @@ export default function DashboardPage() {
     }
     loadDashboard();
   }, []);
+  
 
   const statCards = [
     { title: "Active 'To Do'", value: dashboardStats.activeTodoCount, icon: ListTodo, color: "text-sky-500", bgColor: "bg-sky-50 dark:bg-sky-900/30" },
