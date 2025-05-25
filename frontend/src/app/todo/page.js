@@ -228,7 +228,7 @@ export default function TodoPage() {
               <h2 className="text-xl font-semibold text-gray-700">To Do</h2>
               {!isLoadingQuota && (
                 <h2 className="text-sm font-medium text-gray-500">
-                  Kuota: {actualTodoTaskCount}/{taskCountQuota}
+                  Quota: {actualTodoTaskCount}/{taskCountQuota}
                 </h2>
               )}
             </div>
@@ -262,7 +262,7 @@ export default function TodoPage() {
                               {task.description}
                             </p>
                           ) : (
-                            <p className="text-gray-400 text-sm mt-1 italic">Tidak ada deskripsi</p>
+                            <p className="text-gray-400 text-sm mt-1 italic">No description</p>
                           )}
                         </div>
                         <div className="mt-3 pt-3 border-t border-gray-100">
@@ -374,8 +374,8 @@ export default function TodoPage() {
                     <div className={`flex flex-col items-center justify-center py-6 text-center`}>
                         { (visibleTodoTasks.length === 0 && blurredTodoTasks.length === 0) && !isLoadingTasks && !isLoadingQuota && (
                             <>
-                                <p className="text-[#6772FE] font-semibold">Tidak ada tugas "To Do"</p>
-                                <p className="text-xs text-gray-400 mt-1 mb-3">Tambahkan tugas baru untuk memulai.</p>
+                                <p className="text-[#6772FE] font-semibold">There is no task</p>
+                                <p className="text-xs text-gray-400 mt-1 mb-3">Add task to start.</p>
                             </>
                         )}
                         { !isOverQuota && (
@@ -408,7 +408,7 @@ export default function TodoPage() {
                 </div>
               ) : tasks.filter(task => task.status === 'completed').length === 0 ? (
                 <div className="flex justify-center items-center py-10 text-gray-400">
-                  <p className="font-medium">Belum ada tugas yang diselesaikan.</p>
+                  <p className="font-medium">There is no completed task.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">

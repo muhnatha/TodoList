@@ -7,6 +7,32 @@ import { supabase } from "@/lib/supabaseClient"; // 👈 IMPORT SUPABASE CLIENT 
 import { PlusCircle } from "lucide-react";
 import Script from "next/script";
 
+async function fetchUserQuota() {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    console.error("Error fetching user for quota:", userError?.message || "No user session");
+    return 5; // Default quota if user fetch fails
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('notes_count')
+    .eq('id', user.id)
+    .single(); // Expect a single profile object
+
+  if (profileError) {
+    if (profileError.code !== 'PGRST116') { // PGRST116 means 0 rows, not an error for .single()
+      console.error("Error fetching profile for quota:", profileError.message);
+    } else {
+      console.log("No profile found for user ID, using default quota:", user.id);
+    }
+    return 5; // Default quota if profile not found or error
+  }
+
+  console.log("Fetched profile for quota:", profile);
+  return profile?.todo_count ?? 5; // Return todo_count or default 5 if null/undefined
+}
+
 export default function NotesPage() {
   const [notes, setNotes] = useState([]);
   const [editing, setEditing] = useState(false);
@@ -22,6 +48,19 @@ export default function NotesPage() {
   const [noteIdToDelete, setNoteIdToDelete] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // 👈 For loading state
   const [user, setUser] = useState(null); // 👈 To store user session
+  const [isLoadingQuota, setIsLoadingQuota] = useState(true);
+  const [notesCountQuota, setNotesCountQuota] = useState(3);
+
+  // Load taskCountQuota from profiles
+    useEffect(() => {
+      const loadQuota = async () => {
+        setIsLoadingQuota(true);
+        const quota = await fetchUserQuota();
+        setNotesCountQuota(quota);
+        setIsLoadingQuota(false);
+      };
+      loadQuota();
+    }, []);
 
   // 👈 FETCH USER AND NOTES ON MOUNT
   useEffect(() => {
@@ -239,7 +278,7 @@ export default function NotesPage() {
           <>
             <button
               onClick={handleCreate}
-              className="absolute top-22 left-7 bg-[#6B5CFF] text-white rounded-full p-2.5 shadow-lg hover:bg-[#5a4de0] transition duration-200"
+              className="hover:cursor-pointer absolute top-22 left-7 bg-[#6B5CFF] text-white rounded-full p-2.5 shadow-lg hover:bg-[#5a4de0] transition duration-200"
               aria-label="Create new note"
             >
               Create Notes ✏️
@@ -264,7 +303,7 @@ export default function NotesPage() {
                 <button
                   onClick={handleSave}
                   title="Save Note"
-                  className="text-slate-600 dark:text-slate-300 hover:text-[#6B5CFF] dark:hover:text-[#8A7FFF]"
+                  className="text-slate-600 dark:text-slate-300 hover:text-[#6B5CFF] dark:hover:text-[#8A7FFF] hover:cursor-pointer"
                 >
                   {" "}
                   <ArrowDownToLine />
@@ -272,7 +311,7 @@ export default function NotesPage() {
                 <button
                   onClick={handleClose}
                   title="Close Editor"
-                  className="text-slate-600 dark:text-slate-300 hover:text-red-500 dark:hover:text-red-400"
+                  className="text-slate-600 dark:text-slate-300 hover:text-red-500 dark:hover:text-red-400 hover:cursor-pointer"
                 >
                   <MessageCircleX />
                 </button>
@@ -324,21 +363,21 @@ export default function NotesPage() {
                       <button
                         onClick={() => handleEdit(note)}
                         title="Edit Note"
-                        className="text-slate-600 dark:text-slate-300 hover:text-[#6B5CFF] dark:hover:text-[#8A7FFF]"
+                        className="text-slate-600 dark:text-slate-300 hover:text-[#6B5CFF] dark:hover:text-[#8A7FFF] hover:cursor-pointer"
                       >
                         <Pencil size={18} />
                       </button>
                       <button
                         onClick={() => handleDelete(note.id)}
                         title="Delete Note"
-                        className="text-slate-600 dark:text-slate-300 hover:text-red-500 dark:hover:text-red-400"
+                        className="text-slate-600 dark:text-slate-300 hover:text-red-500 dark:hover:text-red-400 hover:cursor-pointer"
                       >
                         <Trash2 size={18} />
                       </button>
                       <button
                         onClick={() => handleDownloadPDF(note)}
                         title="Download PDF"
-                        className="text-slate-600 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400"
+                        className="text-slate-600 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 hover:cursor-pointer"
                       >
                         🡇
                       </button>
@@ -355,7 +394,7 @@ export default function NotesPage() {
             )}
             <button
               onClick={handleNewNote}
-              className="border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-md flex flex-col items-center justify-center text-gray-600 dark:text-gray-400 text-center h-40 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+              className="hover:cursor-pointer border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-md flex flex-col items-center justify-center text-gray-600 dark:text-gray-400 text-center h-40 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
             >
               <PlusCircle size={24} className="mb-2" />{" "}
               {/* Example Icon, import if needed */}

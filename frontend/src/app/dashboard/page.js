@@ -102,10 +102,9 @@ async function fetchTotalCompletedTasks() {
   }
 
   const { data: completedTasks, error: completedTasksError } = await supabase
-    .from('task')
-    .select('id, completed_at')
-    .eq('user_id', user.id)
-    .eq('status', 'completed');
+    .from('task_completion_log')
+    .select('id, completed_task_count, updated_at')
+    .eq('user_id', user.id);
 
   if (completedTasksError) {
     console.error("Error fetching completed tasks:", completedTasksError.message);

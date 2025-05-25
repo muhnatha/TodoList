@@ -116,7 +116,7 @@ export default function SettingsDetailsPage() {
   const handleLogOut = async (e) => {
     e.preventDefault();
 
-    const confirmLogout = window.confirm('Apakah kamu yakin ingin logout?');
+    const confirmLogout = window.confirm('Are you sure you want to log out?');
     if (!confirmLogout) {
         return;
     }
@@ -124,9 +124,9 @@ export default function SettingsDetailsPage() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-        console.error('Gagal logout:', error.message);
+        console.error('Failed to log out:', error.message);
     } else {
-        console.log('Logout berhasil');
+        console.log('Logout successful');
         router.push('/login');
     }
 
