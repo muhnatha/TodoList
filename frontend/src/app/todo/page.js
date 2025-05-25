@@ -2,22 +2,23 @@
 import React, { useState, useEffect } from 'react'
 import PageLayout from "@/components/PageLayout"
 import { Button } from "@/components/ui/button"
-import { CardContent } from "@/components/ui/card" // Assuming this is used for structure
-import { addTask } from '../action' // Server Action for adding tasks
+import { CardContent } from "@/components/ui/card"
+import { addTask } from '../action' // Server Action
 import { useActionState } from 'react'
 import { CirclePlus, Calendar, Tag, Clock } from "lucide-react"
 import TaskForm from '@/components/TaskForm'
 import { supabase } from '@/lib/supabaseClient'
-import Link from 'next/link' // Import Link for navigation
+import Link from 'next/link'
 
-// Hasil vibe coding dari code awal
+// Konstanta kuota gratis untuk To-Do
+const FREE_TODOS_QUOTA_BASE = 5;
+
 const initialState = {
   message: '',
   success: false,
-  task: null, // Ensure task is part of initial state if used in useEffect dependency
+  task: null,
 };
 
-// Helper function to format date, can be outside the component or in a utils file
 const formatDate = (dateString) => {
   if (!dateString) return '';
   return new Date(dateString).toLocaleDateString(undefined, {
@@ -27,52 +28,86 @@ const formatDate = (dateString) => {
   });
 };
 
-async function fetchTasks() {
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    console.error("Error fetching user:", userError?.message || "No user session");
+async function fetchTasks(userId) {
+  if (!userId) {
+    console.error("User ID not provided to fetchTasks");
     return [];
   }
-
+  // Ambil semua task, urutkan dari yang terbaru agar logic .slice() bekerja benar
+  // untuk menyembunyikan task yang "lebih baru" jika kuota berkurang
   const { data, error } = await supabase
-    .from('task') // Ensure your table name is correct (e.g., 'tasks' or 'task')
+    .from('task')
     .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: true }); // Fetch oldest first for consistent blurring
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false }); // Terbaru di atas
 
   if (error) {
     console.error("Error fetching tasks:", error.message);
     return [];
   }
-  console.log("Fetched tasks:", data);
-  return data;
+  return data || []; // Kembalikan array kosong jika data null
 }
 
-async function fetchUserQuota() {
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    console.error("Error fetching user for quota:", userError?.message || "No user session");
-    return 5; // Default quota if user fetch fails
+// Fungsi untuk menangani kedaluwarsa paket dan menghitung ulang kuota To-Do
+async function updateUserQuotaAndHandleExpiryForTodos(userId, setTaskCountQuotaHook, setIsLoadingQuotaHook) {
+  if (!userId) {
+    setIsLoadingQuotaHook(false);
+    setTaskCountQuotaHook(FREE_TODOS_QUOTA_BASE);
+    console.error("User ID not provided to updateUserQuotaAndHandleExpiryForTodos");
+    return FREE_TODOS_QUOTA_BASE;
+  }
+  setIsLoadingQuotaHook(true);
+
+  const now = new Date().toISOString();
+
+  // 1. Nonaktifkan paket 'todos' yang sudah kedaluwarsa
+  const { error: expiryUpdateError } = await supabase
+    .from('quota_packages')
+    .update({ is_active: false })
+    .eq('user_id', userId)
+    .eq('package_type', 'todos')
+    .eq('is_active', true)
+    .lt('expires_at', now);
+
+  if (expiryUpdateError) {
+    console.error("Error deactivating expired todos packages:", expiryUpdateError.message);
+  } else {
+    console.log("Checked and deactivated any expired todos packages for user:", userId);
   }
 
-  const { data: profile, error: profileError } = await supabase
+  // 2. Hitung ulang total kuota saat ini
+  const { data: activePackages, error: fetchActiveError } = await supabase
+    .from('quota_packages')
+    .select('items_added')
+    .eq('user_id', userId)
+    .eq('package_type', 'todos')
+    .eq('is_active', true);
+
+  let currentTotalTodosQuota = FREE_TODOS_QUOTA_BASE;
+  if (fetchActiveError) {
+    console.error("Error fetching active todos packages:", fetchActiveError.message);
+  } else if (activePackages) {
+    const totalPaidQuota = activePackages.reduce((sum, pkg) => sum + pkg.items_added, 0);
+    currentTotalTodosQuota = FREE_TODOS_QUOTA_BASE + totalPaidQuota;
+  }
+
+  // 3. (PENTING) Update kolom 'todos_current_total_quota' di tabel 'profiles'
+  // Ini memastikan halaman lain (seperti SettingsBillingPage) membaca nilai yang benar.
+  const { error: updateProfileError } = await supabase
     .from('profiles')
-    .select('todo_count')
-    .eq('id', user.id)
-    .single(); // Expect a single profile object
+    .update({ todos_current_total_quota: currentTotalTodosQuota }) // PASTIKAN KOLOM INI ADA
+    .eq('id', userId);
 
-  if (profileError) {
-    if (profileError.code !== 'PGRST116') { // PGRST116 means 0 rows, not an error for .single()
-      console.error("Error fetching profile for quota:", profileError.message);
-    } else {
-      console.log("No profile found for user ID, using default quota:", user.id);
-    }
-    return 5; // Default quota if profile not found or error
+  if (updateProfileError) {
+      console.warn("Could not update todos_current_total_quota in profiles from client:", updateProfileError.message);
   }
 
-  console.log("Fetched profile for quota:", profile);
-  return profile?.todo_count ?? 5; // Return todo_count or default 5 if null/undefined
+  // 4. Set state lokal
+  setTaskCountQuotaHook(currentTotalTodosQuota);
+  setIsLoadingQuotaHook(false);
+  return currentTotalTodosQuota;
 }
+
 
 export default function TodoPage() {
   const [state, formAction] = useActionState(addTask, initialState);
@@ -80,28 +115,59 @@ export default function TodoPage() {
   const [tasks, setTasks] = useState([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isLoadingQuota, setIsLoadingQuota] = useState(true);
-  const [taskCountQuota, setTaskCountQuota] = useState(5); // User's allowed task quota
+  const [taskCountQuota, setTaskCountQuota] = useState(FREE_TODOS_QUOTA_BASE);
+  const [currentUser, setCurrentUser] = useState(null);
 
-  // Load taskCountQuota from profiles
   useEffect(() => {
-    const loadQuota = async () => {
-      setIsLoadingQuota(true);
-      const quota = await fetchUserQuota();
-      setTaskCountQuota(quota);
-      setIsLoadingQuota(false);
+    const initializePage = async () => {
+      setIsLoadingTasks(true);
+      setIsLoadingQuota(true); // Pastikan ini juga di-set
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error("Error fetching user or no user session:", userError?.message || "No user session");
+        setCurrentUser(null);
+        setTasks([]);
+        setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
+        setIsLoadingTasks(false);
+        setIsLoadingQuota(false);
+        return;
+      }
+      
+      setCurrentUser(user);
+
+      await updateUserQuotaAndHandleExpiryForTodos(user.id, setTaskCountQuota, setIsLoadingQuota);
+      // Tidak perlu oper currentQuota ke fetchTasks jika fetchTasks tidak langsung menggunakannya
+      // untuk membatasi query (karena kita slice di client)
+      const fetchedTasks = await fetchTasks(user.id);
+      setTasks(fetchedTasks); // setTasks dengan hasil fetch
+      setIsLoadingTasks(false);
     };
-    loadQuota();
+
+    initializePage();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) { // Cek session.user juga
+            // setCurrentUser(session.user); // Sudah dihandle initializePage
+            initializePage();
+        } else if (event === 'SIGNED_OUT') {
+            setCurrentUser(null);
+            setTasks([]);
+            setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
+            setIsLoadingTasks(false);
+            setIsLoadingQuota(false);
+        }
+    });
+
+    return () => {
+        authListener?.subscription.unsubscribe();
+    };
   }, []);
 
-  // Function to update task status (e.g., to 'completed')
   async function updateTaskStatus(taskId, newStatus = 'completed') {
     const taskToUpdate = tasks.find(t => t.id === taskId);
-    if (!taskToUpdate) {
-        console.error("Task not found for update:", taskId);
-        return;
-    }
+    if (!taskToUpdate) return;
 
-    // Optimistically update UI first
     const originalTasks = [...tasks];
     setTasks(prevTasks => 
         prevTasks.map(task => 
@@ -110,28 +176,22 @@ export default function TodoPage() {
     );
 
     const { error } = await supabase
-      .from('task') // Ensure your table name is correct
-      .update({ 
-        status: newStatus, 
-        completed_at: newStatus === 'completed' ? new Date().toISOString() : null 
-      })
+      .from('task')
+      .update({ status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null })
       .eq('id', taskId);
 
     if (error) {
       console.error("Error updating task status in DB:", error.message);
-      setTasks(originalTasks); // Revert optimistic update on error
-      alert("Failed to update task status. Please try again."); // User feedback
+      setTasks(originalTasks);
+      alert("Failed to update task status. Please try again.");
       return;
     }
 
-    // Update completed_task_count in task_completion_log for the user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (!userError && user && newStatus === 'completed') {
-      // Fetch current completed_task_count
+    if (currentUser && newStatus === 'completed') {
       const { data: logData, error: fetchLogError } = await supabase
         .from('task_completion_log')
         .select('completed_task_count')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUser.id)
         .single();
 
       if (fetchLogError && fetchLogError.code !== 'PGRST116') {
@@ -140,95 +200,87 @@ export default function TodoPage() {
         const currentCount = logData?.completed_task_count || 0;
         const { error: logError } = await supabase
           .from('task_completion_log')
-          .update({
-            completed_task_count: currentCount + 1,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user.id);
-
-        if (logError) {
-          console.error("Error updating task_completion_log:", logError.message);
-        }
+          .update({ completed_task_count: currentCount + 1, updated_at: new Date().toISOString() })
+          .eq('user_id', currentUser.id);
+        if (logError) console.error("Error updating task_completion_log:", logError.message);
       }
     }
-
     console.log(`Task ${taskId} status updated to ${newStatus}`);
   }
 
-  // Effect to handle new task addition from Server Action
   useEffect(() => {
     if (state.success && state.task) {
-      // Add new task to the beginning of the list for better visibility
-      setTasks(prevTasks => [state.task, ...prevTasks].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)));
-      setShowForm(false); // Optionally close form on success
-      // Reset server action state if necessary, though useActionState handles some of this
+      // Tambahkan task baru dan urutkan kembali (terbaru di atas)
+      setTasks(prevTasks => [state.task, ...prevTasks].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)));
+      setShowForm(false);
     }
     if (!state.success && state.message) {
-      alert(`Error adding task: ${state.message}`); // Show error from server action
+      alert(`Error adding task: ${state.message}`);
     }
-  }, [state.success, state.task, state.message]); // Depend on specific state fields
+  }, [state.success, state.task, state.message]);
 
-  // Fetch initial tasks from database
-  useEffect(() => {
-    const loadTasks = async () => {
-      setIsLoadingTasks(true);
-      const data = await fetchTasks();
-      setTasks(data || []);
-      setIsLoadingTasks(false);
-    };
-    loadTasks();
-  }, []); // Runs once on mount
 
-  // Auto-delete completed tasks older than 1 day
+  // --- AWAS: Logika Penghapusan Task Selesai Otomatis ---
+  // useEffect ini berasal dari kode asli Anda.
+  // Ini akan MENGHAPUS task yang statusnya 'completed' dan berumur lebih dari 1 hari.
+  // Jika Anda tidak ingin task selesai hilang sepenuhnya, Anda bisa MENGHAPUS atau MENGOMENTARI useEffect di bawah ini.
   useEffect(() => {
     const deleteOldCompletedTasks = async () => {
+      if (!currentUser) return;
       const cutoff = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
-      const { error } = await supabase
-        .from('task') // Ensure your table name is correct
-        .delete()
+      const { error, count } = await supabase // Dapatkan count untuk logging
+        .from('task')
+        .delete({ count: 'exact' }) // Minta Supabase mengembalikan jumlah baris yang dihapus
         .eq('status', 'completed')
+        .eq('user_id', currentUser.id)
         .lt('completed_at', cutoff);
       
       if (error) {
         console.error('Error auto-deleting completed tasks:', error.message);
       } else {
-        console.log('Checked for old completed tasks to delete.');
-        // Refetch tasks if any might have been deleted
-        const data = await fetchTasks(); 
-        setTasks(data || []);
+        if (count && count > 0) {
+            console.log(`Auto-deleted ${count} old completed task(s).`);
+            // Muat ulang tasks HANYA jika ada yang benar-benar terhapus
+            const updatedTasks = await fetchTasks(currentUser.id); 
+            setTasks(updatedTasks);
+        } else {
+            console.log('Checked for old completed tasks to delete. None found or deleted.');
+        }
       }
     };
     
-    // Run cleanup periodically or on mount
-    const intervalId = setInterval(deleteOldCompletedTasks, 60 * 60 * 1000); // Every hour
-    deleteOldCompletedTasks(); // Run once on mount
+    if (currentUser) {
+        const intervalId = setInterval(deleteOldCompletedTasks, 60 * 60 * 1000); // Setiap jam
+        deleteOldCompletedTasks(); // Jalankan sekali saat mount (setelah currentUser ada)
+        return () => clearInterval(intervalId); 
+    }
+  }, [currentUser]); // Jalankan jika currentUser berubah
 
-    return () => clearInterval(intervalId); // Cleanup interval on unmount
-  }, []);
 
-
-  // Prepare tasks for rendering based on quota
   const todoTasksRaw = tasks.filter(task => task.status === 'todo');
-  const sortedTodoTasks = [...todoTasksRaw].sort((a, b) => 
-    new Date(a.created_at || 0) - new Date(b.created_at || 0)
-  );
+  // tasks sudah diurutkan dari terbaru oleh fetchTasks dan saat penambahan baru
 
-  const visibleTodoTasks = sortedTodoTasks.slice(0, taskCountQuota);
-  const blurredTodoTasks = sortedTodoTasks.slice(taskCountQuota);
-  const isOverQuota = sortedTodoTasks.length >= taskCountQuota;
-  const actualTodoTaskCount = sortedTodoTasks.length;
+  // `taskCountQuota` adalah jumlah total task yang diizinkan (gratis + berbayar aktif)
+  // `visibleTodoTasks` adalah N task terbaru yang sesuai kuota
+  const visibleTodoTasks = todoTasksRaw.slice(0, taskCountQuota);
+  // `blurredTodoTasks` adalah task terbaru berikutnya yang melebihi kuota
+  const blurredTodoTasks = todoTasksRaw.slice(taskCountQuota);
+  
+  const actualActiveTodoTaskCount = todoTasksRaw.length;
+  // Kondisi untuk tombol "Add New Task": bisa tambah jika jumlah task aktif < kuota yang diizinkan
+  const canAddNewTask = actualActiveTodoTaskCount < taskCountQuota;
 
   return (
     <PageLayout title="TODO">
       <div className="flex flex-col p-4 md:p-6">
         <div className="flex flex-col gap-6">
-          {/* To Do Column */}
+          {/* Kolom To Do */}
           <div className="flex flex-col">
             <div className="flex items-center justify-between mb-4 border-b-2 border-gray-200 pb-3">
               <h2 className="text-xl font-semibold text-gray-700">To Do</h2>
               {!isLoadingQuota && (
                 <h2 className="text-sm font-medium text-gray-500">
-                  Quota: {actualTodoTaskCount}/{taskCountQuota}
+                  Quota: {actualActiveTodoTaskCount}/{taskCountQuota}
                 </h2>
               )}
             </div>
@@ -241,15 +293,15 @@ export default function TodoPage() {
               />
             )}
 
-            <CardContent className="p-0"> {/* Removed default CardContent padding */}
+            <CardContent className="p-0">
               {isLoadingTasks || isLoadingQuota ? (
                 <div className="flex justify-center items-center h-40">
                   <p className="text-[#6772FE]">Loading tasks and quota...</p>
                 </div>
               ) : (
                 <>
-                  {/* Render VISIBLE 'todo' tasks (within quota) */}
                   <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 mb-4">
+                    {/* Render VISIBLE 'todo' tasks */}
                     {visibleTodoTasks.map((task) => (
                       <div 
                         key={task.id} 
@@ -298,12 +350,13 @@ export default function TodoPage() {
                       </div>
                     ))}
 
-                    {/* Render BLURRED 'todo' tasks (over quota) */}
+                    {/* Render BLURRED 'todo' tasks */}
                     {blurredTodoTasks.map((task) => (
                       <div 
                         key={task.id} 
                         className="p-4 border border-dashed border-gray-300 rounded-lg bg-gray-50 opacity-60 flex flex-col justify-between min-h-[180px] relative"
                       >
+                        {/* ... (konten task blurred tetap sama) ... */}
                         <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-800 text-xs px-2 py-0.5 rounded-sm font-semibold shadow-sm z-10">
                           Over Quota
                         </div>
@@ -342,6 +395,7 @@ export default function TodoPage() {
                             variant="outline"
                             size="sm"
                             className="w-full mt-auto bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium py-2 transition-colors hover:cursor-not-allowed"
+                            disabled
                           >
                             Complete (Over Quota)
                           </Button>
@@ -350,15 +404,14 @@ export default function TodoPage() {
                     ))}
                   </div>
 
-                  {/* "Over Quota" message and button to upgrade */}
-                  {isOverQuota && (
+                  {/* Pesan "Over Quota" dan tombol upgrade */}
+                  {actualActiveTodoTaskCount > taskCountQuota && !isLoadingQuota && (
                     <div className="flex flex-col items-center justify-center py-6 text-center mt-4 bg-red-50 border border-red-200 rounded-lg">
                       <p className="text-md font-semibold text-red-600 mb-2">
-                        Anda telah mencapai batas kuota tugas!
+                        Anda telah menggunakan {actualActiveTodoTaskCount} dari {taskCountQuota} kuota tugas Anda!
                       </p>
                       <p className="text-sm text-red-500 mb-4">
-                        ({actualTodoTaskCount} tugas aktif dari kuota {taskCountQuota} Anda).
-                        Beberapa tugas ditampilkan berbeda karena melebihi kuota.
+                        Beberapa tugas mungkin tidak ditampilkan atau di-blur karena melebihi kuota.
                       </p>
                       <Link 
                         href='/settings/billing' 
@@ -369,16 +422,17 @@ export default function TodoPage() {
                     </div>
                   )}
                   
-                  {/* Add Task Button - always visible if not in form mode, or if no tasks */}
+                  {/* Tombol Add Task */}
                   {!showForm && (
                     <div className={`flex flex-col items-center justify-center py-6 text-center`}>
-                        { (visibleTodoTasks.length === 0 && blurredTodoTasks.length === 0) && !isLoadingTasks && !isLoadingQuota && (
+                        { (actualActiveTodoTaskCount === 0 && !isLoadingTasks && !isLoadingQuota) && (
                             <>
                                 <p className="text-[#6772FE] font-semibold">There is no task</p>
                                 <p className="text-xs text-gray-400 mt-1 mb-3">Add task to start.</p>
                             </>
                         )}
-                        { !isOverQuota && (
+                        {/* Tombol tambah task hanya muncul jika jumlah task aktif < kuota */}
+                        { canAddNewTask && !isLoadingQuota && (
                           <Button 
                               variant="outline" 
                               size="sm" 
@@ -396,13 +450,13 @@ export default function TodoPage() {
             </CardContent>
           </div>
 
-          {/* Completed Column */}
+          {/* Kolom Completed - UI TIDAK DIUBAH dari struktur asli Anda */}
           <div className="flex flex-col mt-8">
             <div className="flex items-center justify-between mb-4 border-b-2 border-gray-200 pb-3">
               <h2 className="text-xl font-semibold text-gray-700">Completed</h2>
             </div>
             <CardContent className="p-0">
-              {isLoadingTasks ? (
+              {isLoadingTasks ? ( // Bisa juga isLoadingTasks || isLoadingQuota
                 <div className="flex justify-center items-center h-40">
                   <p className="text-[#6772FE]">Loading completed tasks...</p>
                 </div>
@@ -435,7 +489,8 @@ export default function TodoPage() {
                 </div>
               )}
             </CardContent>
-          </div>
+          </div> {/* Akhir Kolom Completed */}
+
         </div>
       </div>
     </PageLayout>
