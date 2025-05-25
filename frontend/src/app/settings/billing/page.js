@@ -12,7 +12,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { supabase } from '@/lib/supabaseClient'
 
-// Fetch todo count and profile ID from Supabase
+// Fetch todo count, notes count, and profile ID from Supabase
 async function fetchUserProfile() {
   // Get the currently authenticated user
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -24,21 +24,21 @@ async function fetchUserProfile() {
   // Fetch the profile for this user
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('todo_count, id')
+    .select('todo_count, notes_count, id') 
     .eq('id', user.id)
     .single();
 
   if (profileError) {
-    if (profileError.code !== 'PGRST116') { // PGRST116 means 0 rows, not necessarily an "error"
+    if (profileError.code !== 'PGRST116') { 
         console.error("Error fetching profile from Supabase:", profileError.message);
     } else {
         console.log("No profile found for user ID:", user.id);
     }
-    return null; // Return null if profile not found or error
+    return null; 
   }
   
   console.log("Fetched user profile from Supabase:", profile);
-  return profile; // Returns the profile object or null
+  return profile; 
 }
 
 const initialState = {
@@ -51,21 +51,32 @@ export default function SettingsBillingPage() {
   const [state, formAction] = useActionState(confirmBilling, initialState);
   const pathname = usePathname();
   const [taskCount, setTaskCount] = useState(0);
+  const [notesCount, setNotesCount] = useState(3);
   const [profileId, setProfileId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const loadInitialData = async () => {
+      setIsLoading(true); // Set loading at the start
       try {
         const userProfile = await fetchUserProfile();
 
         if (userProfile) {
+          // Handle todo_count
           if (userProfile.hasOwnProperty('todo_count')) {
             setTaskCount(userProfile.todo_count);
           } else {
             console.warn("todo_count not found in profile:", userProfile);
             setTaskCount(0); 
           }
+          // ✅ Handle notes_count
+          if (userProfile.hasOwnProperty('notes_count')) {
+            setNotesCount(userProfile.notes_count);
+          } else {
+            console.warn("notes_count not found in profile:", userProfile);
+            setNotesCount(3); // Default to 3 if not found
+          }
+          // Handle profileId
           if (userProfile.hasOwnProperty('id')) {
             setProfileId(userProfile.id);
           } else {
@@ -73,59 +84,59 @@ export default function SettingsBillingPage() {
           }
         } else {
           console.log("No profile data loaded for the user.");
+          // Set defaults if no profile
+          setTaskCount(0);
+          setNotesCount(3);
         }
       } catch (error) {
         console.error("Error in loadInitialData (useEffect):", error);
         setTaskCount(0);
+        setNotesCount(3); // Default on error
         setProfileId('');
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Clear loading at the end
       }
     };
 
     loadInitialData();
   }, []);
-
-  async function handleUpdateTodoCount(newTargetCount) {
+  
+  async function handleUpdateNotesCount(newTargetNotesCount) {
     if (!profileId) {
-      console.error("Profile ID is not available. Cannot update todo count.");
+      console.error("Profile ID is not available. Cannot update notes count.");
       alert("Your profile data hasn't loaded yet. Please wait a moment and try again.");
       return;
     }
 
-    // Ensure newTargetCount is a non-negative number
-    const countToUpdate = Math.max(0, Number(newTargetCount));
+    const countToUpdate = Math.max(0, Number(newTargetNotesCount));
     if (isNaN(countToUpdate)) {
-        console.error("Invalid target count provided:", newTargetCount);
-        alert("An invalid count was provided. Please try again.");
+        console.error("Invalid target notes count provided:", newTargetNotesCount);
+        alert("An invalid count was provided for notes. Please try again.");
         return;
     }
     
-    setIsLoading(true);
-    // Update the database with the new target count
+    setIsLoading(true); // Consider a more specific loading state if needed
     const { data: updatedData, error: updateError } = await supabase
       .from('profiles')
-      .update({ todo_count: countToUpdate })
+      .update({ notes_count: countToUpdate })
       .eq('id', profileId)
-      .select('todo_count') // Select the updated field to confirm its new value
-      .single();           // Expect a single object back
+      .select('notes_count') 
+      .single();
     setIsLoading(false);
 
     if (updateError) {
-      console.error("Error updating todo_count in Supabase:", updateError.message, updateError);
-      alert(`Failed to update your to-do quota. Error: ${updateError.message}`);
+      console.error("Error updating notes_count in Supabase:", updateError.message, updateError);
+      alert(`Failed to update your notes quota. Error: ${updateError.message}`);
       return;
     }
 
-    if (updatedData && updatedData.hasOwnProperty('todo_count')) {
-      console.log("Successfully updated todo_count. New count from DB:", updatedData.todo_count);
-      setTaskCount(updatedData.todo_count); // Update state with the confirmed new count
-      alert(`Your to-do quota has been updated to ${updatedData.todo_count}!`);
+    if (updatedData && updatedData.hasOwnProperty('notes_count')) {
+      console.log("Successfully updated notes_count. New count from DB:", updatedData.notes_count);
+      setNotesCount(updatedData.notes_count); 
+      alert(`Your notes quota has been updated to ${updatedData.notes_count}!`);
     } else {
-      console.warn("Todo count update seemed successful, but no updated data was returned from DB or todo_count was missing. Check RLS and query.");
-      // Fallback: optimistically set the task count if DB doesn't return it, though this is less ideal.
-      // setTaskCount(countToUpdate); 
-      alert("Quota updated, but couldn't confirm the new value immediately. Please refresh if needed.");
+      console.warn("Notes count update seemed successful, but no updated data was returned from DB or notes_count was missing.");
+      alert("Notes quota updated, but couldn't confirm the new value immediately. Please refresh if needed.");
     }
   }
 
@@ -255,27 +266,48 @@ export default function SettingsBillingPage() {
         </div>
         <div className="flex flex-row flex-wrap lg:flex-nowrap w-full items-center justify-center text-[#232360] mb-5">
           <p className="w-20 text-center text-semibold">NOTES</p>
-          <div className="flex flex-row gap-6 text-center items-center  w-full">
-            <a href="#" className="w-1/3 py-5 px-7 lg:px-10 bg-[#D9D9D9] rounded-md hover:bg-[#A0A0A0]">
-              <div className="flex flex-col justify-center items-center">
-                <h1 className="font-bold text-3xl mt-10">FREE</h1>
-                <p className="text-sm mt-8 mb-[-20] min-[756px]:mb-0">User got free 3 notes items</p>
-              </div>
-            </a>
-            <a href="#" className="w-1/3 py-5 px-7 lg:px-10 bg-[#8FEBFF] rounded-md hover:bg-[#1FABAF]">
-              <div className="flex flex-col justify-center items-center">
-                <h1 className="font-bold text-3xl mt-10">+5</h1>
-                <sub className="font-light">add 5 notes items</sub>
-                <p className="text-sm mt-8">10.000/month</p>
-              </div>
-            </a>
-            <a href="#" className="w-1/3 py-5 px-7 lg:px-10 bg-[#1EA7FF] rounded-md hover:bg-[#1E57AF]">
-              <div className="flex flex-col justify-center items-center">
-                <h1 className="font-bold text-3xl mt-10">+10</h1>
-                <sub className="font-light">add 10 notes items</sub>
-                <p className="text-sm mt-8">18.000/month</p>
-              </div>
-            </a>
+          <div className="flex flex-row gap-6 text-center items-center w-full">
+            {/* Free Tier for Notes */}
+            <div className="w-1/3 text-center lg:px-10 bg-[#D9D9D9] rounded-md hover:bg-[#A0A0A0] transition-colors">
+              <Button
+                onClick={() => handleUpdateNotesCount(3)} // Set ke 3 untuk tier gratis
+                disabled={isLoading}
+                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
+              >
+                <div className="flex flex-col justify-center items-center">
+                  <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">FREE</h1>
+                  <p className="text-sm mt-8 mb-[-20] min-[756px]:mb-0">User got free 3 notes items</p>
+                </div>
+              </Button>
+            </div>
+            {/* +5 Notes Tier */}
+            <div className="w-1/3 bg-[#8FEBFF] rounded-md hover:bg-[#1FABAF] transition-colors">
+              <Button
+                onClick={() => handleUpdateNotesCount(notesCount + 5)}
+                disabled={isLoading}
+                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
+              >
+                <div className="flex flex-col justify-center items-center text-center">
+                  <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">+5</h1>
+                  <sub className="font-light">add 5 notes items</sub>
+                  <p className="text-sm mt-8">10.000/month</p> {/* Sesuaikan harga jika perlu */}
+                </div>
+              </Button>
+            </div>
+            {/* +10 Notes Tier */}
+            <div className="w-1/3 bg-[#1EA7FF] rounded-md hover:bg-[#1E57AF] transition-colors">
+              <Button
+                onClick={() => handleUpdateNotesCount(notesCount + 10)}
+                disabled={isLoading}
+                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
+              >
+                <div className="flex flex-col justify-center items-center">
+                  <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">+10</h1>
+                  <sub className="font-light">add 10 notes items</sub>
+                  <p className="text-sm mt-8">18.000/month</p> {/* Sesuaikan harga jika perlu */}
+                </div>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
