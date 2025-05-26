@@ -49,6 +49,7 @@ export default function SettingsDetailsPage() {
   const [isLastNameDisabled, setIsLastNameDisabled] = useState(true);
   const [isEmailDisabled, setIsEmailDisabled] = useState(true);
   const [isPhoneDisabled, setIsPhoneDisabled] = useState(true);
+  const [userProfile, setUserProfile] = useState(null);
   const pathname = usePathname();
   const router = useRouter();
   
@@ -68,6 +69,8 @@ export default function SettingsDetailsPage() {
             todos_current_total_quota = 5,
             notes_current_total_quota = 3
           } = userProfile;
+
+          setUserProfile(userProfile);
 
           // Set all states
           setProfileId(id ?? '');
@@ -107,6 +110,24 @@ export default function SettingsDetailsPage() {
 
     loadInitialData();
   }, []);
+
+  let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; // Default
+  let avatarFallback = 'U';
+  let userEmail = 'User';
+
+  if (userProfile) {
+      userEmail = userProfile.email || 'User';
+      // Prefer avatar_url from profiles table, then from auth.user.user_metadata, then ui-avatars
+      avatarSrc = userProfile.avatar_url || // from 'profiles' table
+                  userProfile.user_metadata?.avatar_url || // from 'auth.users' table
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
+      
+      if (userEmail && userEmail.includes('@')) {
+          avatarFallback = userEmail.substring(0, 2).toUpperCase();
+      } else if (userEmail) {
+          avatarFallback = userEmail.substring(0, 1).toUpperCase();
+      }
+  }
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -169,9 +190,9 @@ export default function SettingsDetailsPage() {
             <div className="flex items-end space-x-7">
                 <div className="relative w-24 h-24 flex items-center justify-center">
                     {/* Same with avatar icon in header */}
-                    <Avatar>
-                        <AvatarImage src="https://github.com/shadcn.png" className="size-15 rounded-full" />
-                        <AvatarFallback>CN</AvatarFallback>
+                    <Avatar className={"w-16 h-16"}>
+                        <AvatarImage src={avatarSrc} />
+                        <AvatarFallback>{avatarFallback}</AvatarFallback>
                     </Avatar>
                     <button 
                         aria-label="Edit profile picture"

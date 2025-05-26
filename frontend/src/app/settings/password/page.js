@@ -5,9 +5,37 @@ import { PencilIcon, LucideEye, LucideEyeClosed } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { usePathname, useRouter } from 'next/navigation'
 import Link from "next/link"
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient.js';
 import { translateSupabaseError } from '@/lib/translateError.js';
+
+async function fetchUserProfile() {
+  // Get the currently authenticated user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    console.error("Error fetching user or no user logged in:", userError?.message || "No user session");
+    return null; // Return null if no user or error
+  }
+
+  // Fetch the profile for this user
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError) {
+    if (profileError.code !== 'PGRST116') { // PGRST116 means 0 rows, not necessarily an "error"
+        console.error("Error fetching profile:", profileError.message);
+    } else {
+        console.log("No profile found for user ID:", user.id);
+    }
+    return null; // Return null if profile not found or error
+  }
+  
+  console.log("Fetched user profile:", profile);
+  return profile; // Returns the profile object or null
+}
 
 export default function SettingsPasswordPage() {
   const [oldPassword, setOldPassword] = useState('');
@@ -18,8 +46,35 @@ export default function SettingsPasswordPage() {
   const [showNewConfirm, setShowNewConfirm] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [userProfile, setUserProfile] = useState(null);
 
   const pathname = usePathname();
+
+  useEffect(() => {
+    async function loadProfile() {
+    const profile = await fetchUserProfile();
+    setUserProfile(profile);
+    }
+    loadProfile(); 
+  }, []);
+
+  let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; // Default
+  let avatarFallback = 'U';
+  let userEmail = 'User';
+
+  if (userProfile) {
+      userEmail = userProfile.email || 'User';
+      // Prefer avatar_url from profiles table, then from auth.user.user_metadata, then ui-avatars
+      avatarSrc = userProfile.avatar_url || // from 'profiles' table
+                  userProfile.user_metadata?.avatar_url || // from 'auth.users' table
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
+      
+      if (userEmail && userEmail.includes('@')) {
+          avatarFallback = userEmail.substring(0, 2).toUpperCase();
+      } else if (userEmail) {
+          avatarFallback = userEmail.substring(0, 1).toUpperCase();
+      }
+  }
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -107,9 +162,9 @@ export default function SettingsPasswordPage() {
             <div className="flex items-end space-x-7">
                 <div className="relative w-24 h-24 flex items-center justify-center">
                     {/* Same with avatar icon in header */}
-                    <Avatar>
-                        <AvatarImage src="https://github.com/shadcn.png" className="size-15 rounded-full" />
-                        <AvatarFallback>CN</AvatarFallback>
+                    <Avatar className={"w-16 h-16"}>
+                        <AvatarImage src={avatarSrc} />
+                        <AvatarFallback>{avatarFallback}</AvatarFallback>
                     </Avatar>
                     <button 
                         aria-label="Edit profile picture"

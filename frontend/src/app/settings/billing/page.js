@@ -5,19 +5,16 @@ import Image from "next/image"
 import { PencilIcon } from "lucide-react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { usePathname } from 'next/navigation'
-import { useActionState } from 'react' // Pastikan ini digunakan atau hapus jika tidak
-// import { confirmBilling } from '@/app/action' // Pastikan ini digunakan atau hapus jika tidak
-import BillForm from "@/components/BillForm" // Pastikan ini digunakan atau hapus jika tidak
+import { useActionState } from 'react' 
+// import { confirmBilling } from '@/app/action' 
+import BillForm from "@/components/BillForm" 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { supabase } from '@/lib/supabaseClient'
-import { time } from 'framer-motion'
 
-// BARU: Definisikan konstanta kuota gratis
 const FREE_NOTES_QUOTA_BASE = 3;
 const FREE_TODOS_QUOTA_BASE = 5;
 
-// MODIFIKASI: fetchUserProfile untuk mengambil kolom total kuota yang baru
 async function fetchUserProfile() {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) {
@@ -25,11 +22,10 @@ async function fetchUserProfile() {
     return null;
   }
 
-  // PASTIKAN KOLOM INI ADA DI TABEL 'profiles' ANDA:
   // notes_current_total_quota dan todos_current_total_quota
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('notes_current_total_quota, todos_current_total_quota, id') // MODIFIKASI NAMA KOLOM
+    .select('notes_current_total_quota, todos_current_total_quota, id, email') 
     .eq('id', user.id)
     .single();
 
@@ -59,6 +55,7 @@ export default function SettingsBillingPage() {
   const [notesCount, setNotesCount] = useState(FREE_NOTES_QUOTA_BASE); // MODIFIKASI: State untuk total kuota Notes
   const [profileId, setProfileId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState(null); // State untuk menyimpan profil pengguna
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -67,6 +64,7 @@ export default function SettingsBillingPage() {
         const userProfile = await fetchUserProfile();
 
         if (userProfile) {
+          setUserProfile(userProfile);
           // MODIFIKASI: Menggunakan kolom total kuota yang baru
           if (userProfile.hasOwnProperty('todos_current_total_quota')) {
             setTaskCount(userProfile.todos_current_total_quota);
@@ -103,7 +101,24 @@ export default function SettingsBillingPage() {
     loadInitialData();
   }, []);
 
-  // BARU: Fungsi untuk menghitung ulang dan memperbarui total kuota di tabel profiles
+  let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; // Default
+  let avatarFallback = 'U';
+  let userEmail = 'User';
+
+  if (userProfile) {
+      userEmail = userProfile.email || 'User';
+      // Prefer avatar_url from profiles table, then from auth.user.user_metadata, then ui-avatars
+      avatarSrc = userProfile.avatar_url || // from 'profiles' table
+                  userProfile.user_metadata?.avatar_url || // from 'auth.users' table
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
+      
+      if (userEmail && userEmail.includes('@')) {
+          avatarFallback = userEmail.substring(0, 2).toUpperCase();
+      } else if (userEmail) {
+          avatarFallback = userEmail.substring(0, 1).toUpperCase();
+      }
+  }
+
   async function recalculateAndUpdateProfileQuota(userId, packageType) {
     const baseFreeQuota = packageType === 'notes' ? FREE_NOTES_QUOTA_BASE : FREE_TODOS_QUOTA_BASE;
 
@@ -116,8 +131,7 @@ export default function SettingsBillingPage() {
 
     if (fetchError) {
       console.error(`Error fetching active ${packageType} packages:`, fetchError.message);
-      // Jangan hentikan loading di sini jika error, biarkan finally di fungsi pemanggil
-      return; // Keluar jika gagal mengambil paket
+      return;
     }
 
     let totalPaidQuota = 0;
@@ -145,7 +159,6 @@ export default function SettingsBillingPage() {
     }
   }
 
-  // BARU: Fungsi untuk menangani pembelian paket kuota
   async function handlePurchaseQuotaPackage(packageType, itemsToAdd) {
     if (!profileId) {
       alert("Informasi pengguna tidak tersedia. Silakan coba lagi.");
@@ -182,7 +195,6 @@ export default function SettingsBillingPage() {
     alert(`Berhasil menambahkan ${itemsToAdd} ${packageType === 'notes' ? 'catatan' : 'tugas'} ke kuota Anda selama 30 hari!`);
   }
 
-  // BARU: Fungsi untuk mengembalikan ke paket gratis
   async function handleResetToFreeTier(packageType) {
     if (!profileId) {
       alert("Informasi pengguna tidak tersedia. Silakan coba lagi.");
@@ -208,14 +220,6 @@ export default function SettingsBillingPage() {
     alert(`Kuota ${packageType === 'notes' ? 'catatan' : 'tugas'} telah diatur ulang ke paket gratis.`);
   }
 
-  // Fungsi handleUpdateNotesCount yang lama tidak lagi digunakan secara langsung oleh tombol
-  // Fungsi handleUpdateTodoCount yang ada di JSX Anda perlu dibuat dengan pola yang sama seperti di atas
-
-  const handleSave = async (e) => { // Fungsi ini sepertinya belum terpakai, pertimbangkan untuk menghapus atau mengimplementasikannya
-    e.preventDefault();
-    console.log("Save button clicked - implement save logic if needed");
-  };
-
   const navSettings = [
         { href: "/settings/details", text: "My Details"},
         { href: "/settings/password", text: "Password"},
@@ -225,7 +229,7 @@ export default function SettingsBillingPage() {
 
     const renderNavSettings = (item, index) => (
         <li key={index}>
-            <a // Pertimbangkan menggunakan Link dari next/link untuk navigasi internal
+            <a 
                 href={item.href}
                 className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'} text-sm sm:text-md text-[#232360]`}
             >
@@ -247,7 +251,7 @@ export default function SettingsBillingPage() {
         />
       </div>
 
-      {showForm &&  ( // Hapus BillForm jika tidak digunakan
+      {showForm &&  ( 
         <BillForm 
         //   formAction={formAction} 
         //   state={state} 
@@ -256,33 +260,24 @@ export default function SettingsBillingPage() {
       )}
 
       <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60] flex justify-between items-end">
-            <div className="flex items-end space-x-7">
-                <div className="relative w-24 h-24 flex items-center justify-center">
-                    <Avatar>
-                        <AvatarImage src="https://github.com/shadcn.png" className="size-15 rounded-full" />
-                        <AvatarFallback>CN</AvatarFallback>
-                    </Avatar>
-                    <button 
-                        aria-label="Edit profile picture"
-                        className="absolute bottom-3 right-3 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
-                    >
-                        <PencilIcon className="w-4 h-4" />
-                    </button>
-                </div>
-                <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#03030b]">
-                Settings
-                </h1>
-            </div>
-
-            <div className="flex space-x-3">
-                <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md">
-                Cancel
-                </Link>
-                <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md">
-                Save
-                </button>
-            </div>
-        </div>
+          <div className="flex items-end space-x-7">
+              <div className="relative w-24 h-24 flex items-center justify-center">
+                  <Avatar className={"w-16 h-16"}>
+                      <AvatarImage src={avatarSrc} />
+                      <AvatarFallback>{avatarFallback}</AvatarFallback>
+                  </Avatar>
+                  <button 
+                      aria-label="Edit profile picture"
+                      className="absolute bottom-3 right-3 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
+                  >
+                      <PencilIcon className="w-4 h-4" />
+                  </button>
+              </div>
+              <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#03030b]">
+              Settings
+              </h1>
+          </div>
+      </div>
 
       <div className="p-6"> 
         <nav className="text-black font-semibold">

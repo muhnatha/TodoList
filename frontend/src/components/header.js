@@ -75,7 +75,6 @@ export default function Header({ title, supabase }) { // Pass supabase as a prop
         }
     }
 
-
     return (
         <>
             {showNotification && (

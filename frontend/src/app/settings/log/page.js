@@ -1,18 +1,71 @@
 'use client'
 import PageLayout from "@/components/PageLayout"
 import Image from "next/image"
+import { useState, useEffect } from "react"
 import { PencilIcon } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { usePathname } from 'next/navigation'
 import Link from "next/link"
+import { supabase } from "@/lib/supabaseClient"
+
+async function fetchUserProfile() {
+  // Get the currently authenticated user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    console.error("Error fetching user or no user logged in:", userError?.message || "No user session");
+    return null; // Return null if no user or error
+  }
+
+  // Fetch the profile for this user
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError) {
+    if (profileError.code !== 'PGRST116') { // PGRST116 means 0 rows, not necessarily an "error"
+        console.error("Error fetching profile:", profileError.message);
+    } else {
+        console.log("No profile found for user ID:", user.id);
+    }
+    return null; // Return null if profile not found or error
+  }
+  
+  console.log("Fetched user profile:", profile);
+  return profile; // Returns the profile object or null
+}
 
 export default function SettingsBillingPage() {
   const pathname = usePathname();
+  const [userProfile, setUserProfile] = useState(null);
 
-  const handleSave = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    async function loadProfile() {
+      const profile = await fetchUserProfile();
+      setUserProfile(profile);
+    }
+    loadProfile();
+  }, []);
 
-  };
+
+  let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; // Default
+  let avatarFallback = 'U';
+  let userEmail = 'User';
+
+  if (userProfile) {
+      userEmail = userProfile.email || 'User';
+      // Prefer avatar_url from profiles table, then from auth.user.user_metadata, then ui-avatars
+      avatarSrc = userProfile.avatar_url || // from 'profiles' table
+                  userProfile.user_metadata?.avatar_url || // from 'auth.users' table
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
+      
+      if (userEmail && userEmail.includes('@')) {
+          avatarFallback = userEmail.substring(0, 2).toUpperCase();
+      } else if (userEmail) {
+          avatarFallback = userEmail.substring(0, 1).toUpperCase();
+      }
+  }
 
   const navSettings = [
         { href: "/settings/details", text: "My Details"},
@@ -49,10 +102,9 @@ export default function SettingsBillingPage() {
       <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60] flex justify-between items-end">
           <div className="flex items-end space-x-7">
               <div className="relative w-24 h-24 flex items-center justify-center">
-                  {/* Same with avatar icon in header */}
-                  <Avatar>
-                      <AvatarImage src="https://github.com/shadcn.png" className="size-15 rounded-full" />
-                      <AvatarFallback>CN</AvatarFallback>
+                  <Avatar className={"w-16 h-16"}>
+                      <AvatarImage src={avatarSrc} />
+                      <AvatarFallback>{avatarFallback}</AvatarFallback>
                   </Avatar>
                   <button 
                       aria-label="Edit profile picture"
@@ -64,15 +116,6 @@ export default function SettingsBillingPage() {
               <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#03030b]">
               Settings
               </h1>
-          </div>
-
-          <div className="flex space-x-3">
-              <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md">
-              Cancel
-              </Link>
-              <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md">
-              Save
-              </button>
           </div>
       </div>
 

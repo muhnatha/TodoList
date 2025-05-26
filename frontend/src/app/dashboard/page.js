@@ -465,7 +465,7 @@ export default function DashboardPage() {
               Recent Notes
             </h3>
             <Link href="/notes">
-              <Button variant="ghost" size="sm" className="text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-700/50">
+              <Button variant="ghost" size="sm" className="text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-700/50 hover:cursor-pointer">
                 View All Notes
               </Button>
             </Link>
@@ -520,19 +520,19 @@ export default function DashboardPage() {
           </div>
           {/* ... (Quick Links Card) ... */}
           <div className="lg:col-span-1 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg border dark:border-slate-700">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Quick Links</h3>
-            <div className="space-y-3">
-              <Link href="/todo">
-                <Button variant="default" className="hover:cursor-pointer w-full bg-sky-600 hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600">
-                  <ListChecks className="h-4 w-4 mr-2" /> View My To-Do List
-                </Button>
-              </Link>
-               {/* BARU: Link ke Halaman Notes */}
-              <Link href="/notes">
-                <Button variant="default" className="hover:cursor-pointer w-full bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600">
-                  <StickyNote className="h-4 w-4 mr-2" /> View My Notes
-                </Button>
-              </Link>
+            <h3 className="text-lg gap-2 font-semibold text-slate-800 dark:text-slate-200 mb-4">Quick Links</h3>
+            <div className='flex flex-col gap-3'>
+                <Link href="/todo">
+                  <Button variant="default" className="hover:cursor-pointer w-full bg-sky-600 hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600">
+                    <ListChecks className="h-4 w-4 mr-2" /> View My To-Do List
+                  </Button>
+                </Link>
+                {/* BARU: Link ke Halaman Notes */}
+                <Link href="/notes">
+                  <Button variant="default" className="hover:cursor-pointer w-full bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600">
+                    <StickyNote className="h-4 w-4 mr-2" /> View My Notes
+                  </Button>
+                </Link>
             </div>
           </div>
         </section>

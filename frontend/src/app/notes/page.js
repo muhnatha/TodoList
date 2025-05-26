@@ -1,16 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react"; // Added useRef
 import PageLayout from "@/components/PageLayout";
 import { ArrowDownToLine, MessageCircleX, Pencil, Trash2, PlusCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import Script from "next/script";
 import Link from "next/link";
 
-// BARU: Definisikan konstanta kuota gratis untuk Notes
 const FREE_NOTES_QUOTA_BASE = 3;
 
-// BARU: Fungsi untuk menangani kedaluwarsa paket dan menghitung ulang kuota Notes
 async function updateUserQuotaAndHandleExpiryForNotes(userId, setNotesCountQuotaHook, setIsLoadingQuotaHook) {
   if (!userId) {
     setIsLoadingQuotaHook(false);
@@ -22,51 +20,54 @@ async function updateUserQuotaAndHandleExpiryForNotes(userId, setNotesCountQuota
 
   const now = new Date().toISOString();
 
-  // 1. Nonaktifkan paket 'notes' yang sudah kedaluwarsa
-  const { error: expiryUpdateError } = await supabase
-    .from('quota_packages')
-    .update({ is_active: false })
-    .eq('user_id', userId)
-    .eq('package_type', 'notes')
-    .eq('is_active', true)
-    .lt('expires_at', now);
+  try {
+    const { error: expiryUpdateError } = await supabase
+      .from('quota_packages')
+      .update({ is_active: false })
+      .eq('user_id', userId)
+      .eq('package_type', 'notes')
+      .eq('is_active', true)
+      .lt('expires_at', now);
 
-  if (expiryUpdateError) {
-    console.error("Error deactivating expired notes packages:", expiryUpdateError.message);
-  } else {
-    console.log("Checked and deactivated any expired notes packages for user:", userId);
-  }
+    if (expiryUpdateError) {
+      console.error("Error deactivating expired notes packages:", expiryUpdateError.message);
+    } else {
+      console.log("Checked and deactivated any expired notes packages for user:", userId);
+    }
 
-  // 2. Hitung ulang total kuota saat ini
-  const { data: activePackages, error: fetchActiveError } = await supabase
-    .from('quota_packages')
-    .select('items_added')
-    .eq('user_id', userId)
-    .eq('package_type', 'notes')
-    .eq('is_active', true);
+    const { data: activePackages, error: fetchActiveError } = await supabase
+      .from('quota_packages')
+      .select('items_added')
+      .eq('user_id', userId)
+      .eq('package_type', 'notes')
+      .eq('is_active', true);
 
-  let currentTotalNotesQuota = FREE_NOTES_QUOTA_BASE;
-  if (fetchActiveError) {
-    console.error("Error fetching active notes packages:", fetchActiveError.message);
-  } else if (activePackages) {
-    const totalPaidQuota = activePackages.reduce((sum, pkg) => sum + pkg.items_added, 0);
-    currentTotalNotesQuota = FREE_NOTES_QUOTA_BASE + totalPaidQuota;
-  }
+    let currentTotalNotesQuota = FREE_NOTES_QUOTA_BASE;
+    if (fetchActiveError) {
+      console.error("Error fetching active notes packages:", fetchActiveError.message);
+    } else if (activePackages) {
+      const totalPaidQuota = activePackages.reduce((sum, pkg) => sum + pkg.items_added, 0);
+      currentTotalNotesQuota = FREE_NOTES_QUOTA_BASE + totalPaidQuota;
+    }
 
-  // 3. (PENTING) Update kolom 'notes_current_total_quota' di tabel 'profiles'
-  const { error: updateProfileError } = await supabase
-    .from('profiles')
-    .update({ notes_current_total_quota: currentTotalNotesQuota }) // PASTIKAN KOLOM INI ADA
-    .eq('id', userId);
+    const { error: updateProfileError } = await supabase
+      .from('profiles')
+      .update({ notes_current_total_quota: currentTotalNotesQuota })
+      .eq('id', userId);
 
-  if (updateProfileError) {
+    if (updateProfileError) {
       console.warn("Could not update notes_current_total_quota in profiles from client:", updateProfileError.message);
-  }
+    }
 
-  // 4. Set state lokal
-  setNotesCountQuotaHook(currentTotalNotesQuota);
-  setIsLoadingQuotaHook(false);
-  return currentTotalNotesQuota;
+    setNotesCountQuotaHook(currentTotalNotesQuota);
+    return currentTotalNotesQuota;
+  } catch (error) {
+    console.error("Unexpected error in updateUserQuotaAndHandleExpiryForNotes:", error.message);
+    setNotesCountQuotaHook(FREE_NOTES_QUOTA_BASE); // Fallback to base quota on error
+    return FREE_NOTES_QUOTA_BASE;
+  } finally {
+    setIsLoadingQuotaHook(false);
+  }
 }
 
 
@@ -81,106 +82,155 @@ export default function NotesPage() {
   });
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [noteIdToDelete, setNoteIdToDelete] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // Loading untuk notes list
+  const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const [isLoadingQuota, setIsLoadingQuota] = useState(true); // Loading untuk kuota
+  const [isLoadingQuota, setIsLoadingQuota] = useState(true);
   const [notesCountQuota, setNotesCountQuota] = useState(FREE_NOTES_QUOTA_BASE);
+  const [inputValue, setInputValue] = useState('');
+  const [searchResult, setSearchResult] = useState("");
+  const isInitializingRef = useRef(false);
+  const currentUserIdRef = useRef(null);
 
-  // MODIFIKASI: useEffect utama untuk memuat data user, kuota, dan notes
+  const fetchUserNotes = async (userId) => { 
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching notes:", error.message);
+      alert("Error fetching notes: " + error.message);
+      setNotes([]);
+    } else {
+      setNotes(data || []);
+    }
+  };
+
   useEffect(() => {
-    const initializePage = async () => {
-      setIsLoading(true); // Loading utama untuk notes dan kuota
-      setIsLoadingQuota(true);
-
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError || !session?.user) {
-        console.error("Error getting session or no user:", sessionError?.message || "No user session");
-        setUser(null);
-        setNotes([]);
-        setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
-        setIsLoading(false);
-        setIsLoadingQuota(false);
+    const initializePage = async (sessionUser) => {
+      if (isInitializingRef.current) {
+        console.log("Initialization already in progress. Skipping.");
         return;
       }
-
-      const currentUser = session.user;
-      setUser(currentUser);
-      
-      // 1. Update kuota dan tangani kedaluwarsa
-      const currentQuota = await updateUserQuotaAndHandleExpiryForNotes(currentUser.id, setNotesCountQuota, setIsLoadingQuota);
-      
-      // 2. Muat notes pengguna (setelah kuota diketahui)
-      await fetchUserNotes(currentUser.id, currentQuota);
-      setIsLoading(false); // Selesai loading utama
-    };
-
-    initializePage();
-
-    // MODIFIKASI: Listener auth state change
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "SIGNED_IN" && session?.user) {
-          // setUser(session.user); // Sudah dihandle initializePage
-          await initializePage(); // Panggil ulang inisialisasi
-        } else if (event === "SIGNED_OUT") {
+      isInitializingRef.current = true;
+      setIsLoading(true);
+      setIsLoadingQuota(true); 
+      try {
+        if (!sessionUser) {
+          console.log("No user session, setting defaults.");
           setUser(null);
+          currentUserIdRef.current = null;
           setNotes([]);
           setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
-          setIsLoading(false); // Pastikan semua loading di-reset
+          return; // Exit early
+        }
+
+        if (sessionUser.id !== currentUserIdRef.current) {
+            setUser(sessionUser);
+            currentUserIdRef.current = sessionUser.id;
+        }
+        
+        const currentQuota = await updateUserQuotaAndHandleExpiryForNotes(sessionUser.id, setNotesCountQuota, setIsLoadingQuota);
+        await fetchUserNotes(sessionUser.id);
+        
+      } catch (error) {
+          console.error("Error during page initialization:", error.message);
+          setUser(null);
+          currentUserIdRef.current = null;
+          setNotes([]);
+          setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
+          // Ensure loading states are false even if an error occurs within the try block
+      } finally {
+        setIsLoading(false);
+        // setIsLoadingQuota is handled by updateUserQuotaAndHandleExpiryForNotes's finally block
+        isInitializingRef.current = false;
+      }
+    };
+
+    // Initial check for session on component mount
+    supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
+        if (sessionError) {
+            console.error("Error getting initial session:", sessionError.message);
+            await initializePage(null); // Initialize with no user
+        } else {
+            await initializePage(session?.user || null);
+        }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("Auth event:", event, "Current User ID:", currentUserIdRef.current, "Session User ID:", session?.user?.id);
+        if (event === "SIGNED_IN") {
+          // Only re-initialize if user ID actually changed or was previously null
+          if (session?.user && session.user.id !== currentUserIdRef.current) {
+            console.log("User changed or newly signed in, re-initializing.");
+            await initializePage(session.user);
+          } else if (session?.user && currentUserIdRef.current === null) {
+            // This handles the case where initial session was null, then user signs in
+            console.log("User signed in (was previously null), re-initializing.");
+            await initializePage(session.user);
+          } else if (session?.user && !isLoading && !isLoadingQuota) {
+            // If user is the same, but we are not loading, perhaps a token refresh.
+            // We might want to gently re-validate quota without full page loading visuals
+            // For now, if user is same and no loading, do nothing to prevent flicker
+            console.log("Auth event SIGNED_IN for same user, no re-initialization needed if not loading.");
+          }
+        } else if (event === "SIGNED_OUT") {
+          console.log("User signed out, resetting page.");
+          // Ensure state is reset properly without full re-initialization logic for signed out
+          isInitializingRef.current = true; // Prevent initializePage from running if it's triggered elsewhere
+          setUser(null);
+          currentUserIdRef.current = null;
+          setNotes([]);
+          setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
+          setIsLoading(false); 
           setIsLoadingQuota(false);
+          isInitializingRef.current = false;
+        } else if (event === "TOKEN_REFRESHED" && session?.user) {
+            // If token is refreshed, user is still the same.
+            // We might want to silently update quota in background if needed,
+            // but avoid full page reload if user context hasn't changed.
+            console.log("Token refreshed for user:", session.user.id, "Checking quota.");
+            if (session.user.id === currentUserIdRef.current) {
+                 // Silently update quota without triggering main page loading indicators
+                const previousIsLoadingQuota = isLoadingQuota; // Store previous state
+                // setIsLoadingQuota(true); // Momentarily show quota loading if desired
+                await updateUserQuotaAndHandleExpiryForNotes(session.user.id, setNotesCountQuota, setIsLoadingQuota);
+                // setIsLoadingQuota(previousIsLoadingQuota); // Restore or let the function handle it
+            }
         }
       }
     );
 
     return () => {
-      subscription?.unsubscribe(); // Perbaikan unsubscribe
+      subscription?.unsubscribe();
     };
-  }, []); 
-
-  const fetchUserNotes = async (userId, currentTotalAllowedQuota) => { // Terima kuota juga
-    if (!userId) return;
-    // setIsLoading(true); // isLoading utama sudah dihandle di initializePage
-    const { data, error } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false }); // MODIFIKASI: Urutkan dari terbaru untuk logic slice
-
-    if (error) {
-      console.error("Error fetching notes:", error.message);
-      alert("Error fetching notes: " + error.message);
-      setNotes([]); // Set notes menjadi array kosong jika error
-    } else {
-      setNotes(data || []);
-    }
-    // setIsLoading(false); // isLoading utama sudah dihandle di initializePage
-  };
+  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
 
   const handleCreate = () => {
-    // `notes.length` adalah jumlah notes yang *ada* saat ini
-    // `notesCountQuota` adalah jumlah notes yang *diizinkan*
     if (notes.length >= notesCountQuota && notesCountQuota > 0) {
       alert(`Anda telah mencapai batas ${notesCountQuota} catatan. Silakan upgrade paket Anda untuk menambah catatan.`);
       return;
     }
-     if (notesCountQuota === 0 && notes.length >= FREE_NOTES_QUOTA_BASE) { // Ditambahkan kondisi jika kuota 0 tapi sudah ada note gratis
+    if (notesCountQuota === 0 && notes.length >= FREE_NOTES_QUOTA_BASE) {
       alert(`Paket gratis Anda hanya mengizinkan ${FREE_NOTES_QUOTA_BASE} catatan. Silakan upgrade untuk menambah lagi.`);
       return;
     }
-     if (notesCountQuota === 0 && notes.length < FREE_NOTES_QUOTA_BASE) {
-        // Boleh buat jika kuota 0 tapi belum mencapai batas gratis
-     } else if (notesCountQuota === 0) { // Jika kuota 0 dan sudah ada notes sesuai batas gratis
+    if (notesCountQuota === 0 && notes.length < FREE_NOTES_QUOTA_BASE) {
+      // Boleh buat
+    } else if (notesCountQuota === 0) {
       alert(`Paket Anda saat ini tidak mengizinkan penambahan catatan. Silakan upgrade.`);
       return;
-     }
+    }
 
     setEditing(true);
     setCurrentNote({
       id: null,
       title: "",
       content: "",
-      date: new Date().toISOString().split("T")[0], // Atau gunakan created_at dari DB
+      date: new Date().toISOString().split("T")[0],
     });
   };
 
@@ -194,50 +244,47 @@ export default function NotesPage() {
       return;
     }
 
-    // Cek kuota lagi sebelum menyimpan catatan BARU
-    if (!currentNote.id) { // Hanya cek untuk catatan baru
-        if (notes.length >= notesCountQuota && notesCountQuota > 0) {
-            alert(`Batas ${notesCountQuota} catatan tercapai. Tidak dapat menyimpan catatan baru.`);
-            setEditing(false);
-            return;
-        }
-        if (notesCountQuota === 0 && notes.length >= FREE_NOTES_QUOTA_BASE) {
-             alert(`Paket gratis Anda hanya mengizinkan ${FREE_NOTES_QUOTA_BASE} catatan. Tidak dapat menyimpan catatan baru.`);
-             setEditing(false);
-             return;
-        }
-        if (notesCountQuota === 0 && notes.length < FREE_NOTES_QUOTA_BASE) {
-            // Boleh simpan jika kuota 0 tapi belum mencapai batas gratis
-        } else if (notesCountQuota === 0) {
-             alert(`Paket Anda tidak mengizinkan penyimpanan catatan baru.`);
-             setEditing(false);
-             return;
-        }
+    if (!currentNote.id) {
+      if (notes.length >= notesCountQuota && notesCountQuota > 0) {
+        alert(`Batas ${notesCountQuota} catatan tercapai. Tidak dapat menyimpan catatan baru.`);
+        setEditing(false);
+        return;
+      }
+      if (notesCountQuota === 0 && notes.length >= FREE_NOTES_QUOTA_BASE) {
+        alert(`Paket gratis Anda hanya mengizinkan ${FREE_NOTES_QUOTA_BASE} catatan. Tidak dapat menyimpan catatan baru.`);
+        setEditing(false);
+        return;
+      }
+      if (notesCountQuota === 0 && notes.length < FREE_NOTES_QUOTA_BASE) {
+        // Boleh simpan
+      } else if (notesCountQuota === 0) {
+        alert(`Paket Anda tidak mengizinkan penyimpanan catatan baru.`);
+        setEditing(false);
+        return;
+      }
     }
 
-    setIsLoading(true); // Loading untuk proses simpan
+    setIsLoading(true); // Loading for save process
     let error;
     const noteData = {
-        user_id: user.id,
-        title: currentNote.title,
-        content: currentNote.content,
-        date: currentNote.date, // Pertimbangkan untuk menggunakan server timestamp untuk 'created_at' dan 'updated_at'
+      user_id: user.id,
+      title: currentNote.title,
+      content: currentNote.content,
+      date: currentNote.date,
     };
 
     if (currentNote.id) {
-      // Mengedit catatan yang ada
       const { error: updateError } = await supabase
         .from("notes")
-        .update({ ...noteData, updated_at: new Date().toISOString() }) // Tambah updated_at
+        .update({ ...noteData, updated_at: new Date().toISOString() })
         .eq("id", currentNote.id)
         .eq("user_id", user.id);
       error = updateError;
     } else {
-      // Membuat catatan baru
       const { error: insertError } = await supabase
         .from("notes")
-        .insert(noteData) // created_at akan diisi otomatis oleh DB jika diset default now()
-        .select(); 
+        .insert(noteData)
+        .select();
       error = insertError;
     }
 
@@ -245,20 +292,19 @@ export default function NotesPage() {
       console.error("Error saving note:", error.message);
       alert("Error saving note: " + error.message);
     } else {
-      // Muat ulang notes dan kuota untuk mendapatkan data terbaru
+      // Re-fetch notes and update quota (which also sets its own loading)
       const currentQuota = await updateUserQuotaAndHandleExpiryForNotes(user.id, setNotesCountQuota, setIsLoadingQuota);
-      await fetchUserNotes(user.id, currentQuota);
+      await fetchUserNotes(user.id); // Pass currentQuota if fetchUserNotes needs it for display slicing
       setEditing(false);
       setCurrentNote({ id: null, title: "", content: "", date: "" });
     }
-    setIsLoading(false); // Selesai loading simpan
+    setIsLoading(false); // Done loading save process
   };
 
-  const handleNewNote = () => { // Sama dengan handleCreate
+  const handleNewNote = () => {
     handleCreate();
   };
 
-  // ... (fungsi handleEdit, handleClose, handleDelete, confirmDelete, cancelDelete, handleDownloadPDF tetap sama) ...
   const handleEdit = (noteToEdit) => {
     setCurrentNote({ ...noteToEdit });
     setEditing(true);
@@ -276,7 +322,7 @@ export default function NotesPage() {
 
   const confirmDelete = async () => {
     if (!user || !noteIdToDelete) return;
-    setIsLoading(true);
+    setIsLoading(true); // Loading for delete process
     const { error } = await supabase
       .from("notes")
       .delete()
@@ -287,13 +333,12 @@ export default function NotesPage() {
       console.error("Error deleting note:", error.message);
       alert("Error deleting note: " + error.message);
     } else {
-      // Setelah hapus, muat ulang notes dan kuota
       const currentQuota = await updateUserQuotaAndHandleExpiryForNotes(user.id, setNotesCountQuota, setIsLoadingQuota);
-      await fetchUserNotes(user.id, currentQuota);
+      await fetchUserNotes(user.id);
     }
     setShowConfirmDelete(false);
     setNoteIdToDelete(null);
-    setIsLoading(false);
+    setIsLoading(false); // Done loading delete process
   };
 
   const cancelDelete = () => {
@@ -303,61 +348,97 @@ export default function NotesPage() {
 
   const handleDownloadPDF = (note) => {
     if (!note) return;
+    if (typeof window.jspdf === 'undefined') {
+        alert('PDF library is not loaded yet. Please try again in a moment.');
+        return;
+    }
+
     const doc = new window.jspdf.jsPDF();
+    const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
+    const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
+    
+    const margin = 20; // Page margin
+    const maxLineWidth = pageWidth - margin * 2;
+    let currentY = margin; // Start Y position for text
+
+    // Title
     doc.setFontSize(18);
-    doc.text(note.title || "Untitled", 10, 20);
+    doc.text(note.title || "Untitled", margin, currentY);
+    currentY += 10; // Move Y down
+
+    // Date
     doc.setFontSize(12);
-    doc.text(new Date(note.date || note.created_at).toLocaleDateString() || "No date", 10, 30); // Gunakan created_at jika date kosong
-    doc.setFontSize(14);
-    doc.text(note.content || "", 10, 40);
-    doc.save(`${note.title || "note"}.pdf`);
+    doc.text(new Date(note.date || note.created_at).toLocaleDateString() || "No date", margin, currentY);
+    currentY += 10; // Move Y down for content
+
+    doc.setFontSize(12); 
+    const noteContent = note.content || "No content.";
+    
+    const contentToPrint = noteContent; 
+
+
+    const lines = doc.splitTextToSize(contentToPrint, maxLineWidth);
+    
+    lines.forEach(line => {
+        if (currentY + 10 > pageHeight - margin) { // Check if new page is needed (10 is approx line height)
+            doc.addPage();
+            currentY = margin; // Reset Y for new page
+        }
+        doc.text(line, margin, currentY);
+        currentY += 7; // Increment Y for next line (adjust line spacing as needed)
+    });
+
+    doc.save(`${note.title || "note"}-${new Date().toISOString().split('T')[0]}.pdf`);
   };
-  // --- AKHIR FUNGSI LAMA ---
+  
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value.toLowerCase());
+  };
 
-  // Kondisi untuk UI, notes.length adalah jumlah notes yang ADA
+  const filteredNotes = notes.filter(notes =>
+    notes.title.toLowerCase().includes(inputValue)
+  );
+
   const canCreateNote = user && !isLoadingQuota && notes.length < notesCountQuota;
-  // Kondisi jika kuota 0 tapi belum mencapai batas gratis (misal 3)
   const canCreateWithZeroQuotaFreeTier = user && !isLoadingQuota && notesCountQuota === 0 && notes.length < FREE_NOTES_QUOTA_BASE;
-
-  const actualNotesCount = notes.length; // Jumlah notes yang ada di database pengguna
-  const isOverQuota = actualNotesCount > notesCountQuota && notesCountQuota > 0; // Lebih dari kuota berbayar
+  const actualNotesCount = notes.length;
+  const isOverQuota = actualNotesCount > notesCountQuota && notesCountQuota > 0;
   const isAtFreeQuotaLimitWithZeroPaidQuota = notesCountQuota === 0 && actualNotesCount >= FREE_NOTES_QUOTA_BASE;
-
+  const showPageLoadingIndicator = isLoading || (isLoadingQuota && user);
 
   return (
     <PageLayout title="NOTES">
       <div className="flex-1 flex flex-col p-4 md:p-8 relative">
-        {/* Header: Judul, Kuota, Search, Avatar */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
           <div className="flex items-center">
             <h1 className="text-2xl md:text-3xl font-bold text-[#1D1C3B] dark:text-slate-100">
               My Notes
             </h1>
-            {user && !isLoadingQuota && (
+            {user && !isLoadingQuota && ( // Show count when quota is not loading
               <span className="ml-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
                 {actualNotesCount}/{notesCountQuota > 0 ? notesCountQuota : FREE_NOTES_QUOTA_BASE}
               </span>
             )}
+             {(isLoadingQuota && user) && ( // Show placeholder when quota is loading
+                <span className="ml-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full animate-pulse">
+                    --/--
+                </span>
+            )}
           </div>
           {user && (
-            // ... (Input search dan avatar tetap sama) ...
             <div className="flex items-center gap-4 w-full sm:w-auto">
               <input
                 type="text"
-                placeholder="Search note (not implemented)"
+                onChange={handleInputChange}
+                value={inputValue}
+                placeholder="Search"
                 className="px-4 py-2 rounded-md bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-[#6B5CFF] w-full sm:w-auto"
-                disabled
               />
-              <div className="w-8 h-8 bg-gray-300 dark:bg-slate-600 rounded-full flex items-center justify-center text-sm text-gray-600 dark:text-slate-300">
-                {user.email ? user.email.charAt(0).toUpperCase() : "?"}
-              </div>
             </div>
           )}
         </div>
 
-        {/* Jika tidak ada user */}
-        {!user && !isLoading && (
-          // ... (Pesan login tetap sama) ...
+        {!user && !showPageLoadingIndicator && ( // Show only if not loading and no user
           <div className="text-center py-10">
             <p className="text-lg text-gray-600 dark:text-gray-400">
               Please log in to manage your notes.
@@ -365,11 +446,9 @@ export default function NotesPage() {
           </div>
         )}
 
-        {/* Tampilan jika ada user dan tidak sedang mengedit */}
-        {user && !editing && (
+        {user && !editing && !showPageLoadingIndicator && ( // Content when user exists, not editing, and not loading
           <>
-            {/* Pesan jika kuota habis */}
-            {(isOverQuota || isAtFreeQuotaLimitWithZeroPaidQuota) && !isLoadingQuota && (
+            {(isOverQuota || isAtFreeQuotaLimitWithZeroPaidQuota) && (
               <div className="p-4 mb-4 text-sm text-center text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
                 {isAtFreeQuotaLimitWithZeroPaidQuota
                   ? `Anda telah mencapai batas ${FREE_NOTES_QUOTA_BASE} catatan untuk paket gratis. `
@@ -378,8 +457,7 @@ export default function NotesPage() {
               </div>
             )}
 
-            {/* Tombol "Create Notes" jika belum ada notes dan kuota mengizinkan */}
-            {actualNotesCount === 0 && (canCreateNote || canCreateWithZeroQuotaFreeTier) && !isLoading && !isLoadingQuota && (
+            {actualNotesCount === 0 && (canCreateNote || canCreateWithZeroQuotaFreeTier) && (
               <button
                 onClick={handleCreate}
                 className="hover:cursor-pointer absolute top-22 left-7 bg-[#6B5CFF] text-white rounded-full p-2.5 shadow-lg hover:bg-[#5a4de0] transition duration-200"
@@ -389,25 +467,22 @@ export default function NotesPage() {
               </button>
             )}
             
-            {/* Pesan jika tidak ada notes */}
-            {actualNotesCount === 0 && !isLoading && !isLoadingQuota && !(canCreateNote || canCreateWithZeroQuotaFreeTier) && (
+            {actualNotesCount === 0 && !(canCreateNote || canCreateWithZeroQuotaFreeTier) && (
               <div className="text-gray-400 dark:text-gray-500 text-center mt-32 text-lg">
                 {notesCountQuota === 0 && !canCreateWithZeroQuotaFreeTier
                   ? <>Paket Anda saat ini tidak mengizinkan pembuatan catatan. <Link href="/settings/billing" className="underline text-[#6B5CFF]">Upgrade di sini</Link>.</>
                   : (isOverQuota || isAtFreeQuotaLimitWithZeroPaidQuota ? <>Anda telah mencapai batas kuota. <Link href="/settings/billing" className="underline text-[#6B5CFF]">Upgrade untuk menambah lagi</Link>.</> : 'No notes yet...')}
               </div>
             )}
-             {actualNotesCount === 0 && !isLoading && !isLoadingQuota && (canCreateNote || canCreateWithZeroQuotaFreeTier) && (
-                 <div className="text-gray-400 dark:text-gray-500 text-center mt-32 text-lg">
-                     No notes yet...
-                 </div>
-             )}
+             {actualNotesCount === 0 && (canCreateNote || canCreateWithZeroQuotaFreeTier) && (
+                <div className="text-gray-400 dark:text-gray-500 text-center mt-32 text-lg">
+                    No notes yet...
+                </div>
+            )}
           </>
         )}
         
-        {/* Form Editor Catatan */}
-        {user && editing && (
-          // ... (Form editor tetap sama) ...
+        {user && editing && ( // Form editor - assumes not loading if editing
           <div className="border dark:border-slate-700 p-6 rounded-md shadow-md bg-white dark:bg-slate-800 w-full max-w-3xl mx-auto relative">
             <div className="flex justify-between items-center mb-2">
               <input
@@ -422,7 +497,8 @@ export default function NotesPage() {
                 <button
                   onClick={handleSave}
                   title="Save Note"
-                  className="text-slate-600 dark:text-slate-300 hover:text-[#6B5CFF] dark:hover:text-[#8A7FFF] hover:cursor-pointer"
+                  disabled={isLoading} // Disable save if any loading operation is in progress
+                  className="text-slate-600 dark:text-slate-300 hover:text-[#6B5CFF] dark:hover:text-[#8A7FFF] hover:cursor-pointer disabled:opacity-50"
                 >
                   <ArrowDownToLine />
                 </button>
@@ -456,24 +532,20 @@ export default function NotesPage() {
           </div>
         )}
 
-        {/* Loading Indicator */}
-        {(isLoading || (isLoadingQuota && user)) && ( // Tampilkan jika loading utama atau loading kuota saat ada user
+        {showPageLoadingIndicator && (
             <div className="text-center py-10 text-gray-500 dark:text-gray-400">
               Loading notes...
             </div>
         )}
 
-        {/* Daftar Catatan */}
-        {user && !editing && actualNotesCount > 0 && !isLoading && !isLoadingQuota && (
+        {user && !editing && actualNotesCount > 0 && !showPageLoadingIndicator && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-            {/* MODIFIKASI: Gunakan slice untuk menampilkan notes sesuai kuota */}
-            {notes.slice(0, notesCountQuota > 0 ? notesCountQuota : (actualNotesCount <= FREE_NOTES_QUOTA_BASE ? FREE_NOTES_QUOTA_BASE : 0) ).map((note) => (
+            {filteredNotes.slice(0, notesCountQuota > 0 ? notesCountQuota : (actualNotesCount <= FREE_NOTES_QUOTA_BASE ? FREE_NOTES_QUOTA_BASE : 0) ).map((note) => (
               <div
                 key={note.id}
                 className="border dark:border-slate-700 p-4 rounded-md shadow-md bg-white dark:bg-slate-800 relative flex flex-col justify-between min-h-[150px]"
               >
-                {/* ... (Konten card catatan tetap sama) ... */}
-                 <div> {/* Content wrapper */}
+                <div>
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       {new Date(note.date || note.created_at).toLocaleDateString() || "No Date"}
@@ -498,7 +570,7 @@ export default function NotesPage() {
                         title="Download PDF"
                         className="text-slate-600 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 hover:cursor-pointer"
                       >
-                        🡇 
+                        <ArrowDownToLine size={18}/> {/* Changed to Lucide Icon */}
                       </button>
                     </div>
                   </div>
@@ -511,8 +583,7 @@ export default function NotesPage() {
                 </div>
               </div>
             ))}
-            {/* Tombol "New Note" di grid - hanya jika kuota mengizinkan */}
-            {(canCreateNote || canCreateWithZeroQuotaFreeTier) && !isLoadingQuota && (
+            {(canCreateNote || canCreateWithZeroQuotaFreeTier) && (
               <button
                 onClick={handleNewNote}
                 className="hover:cursor-pointer border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-md flex flex-col items-center justify-center text-gray-600 dark:text-gray-400 text-center h-full min-h-[150px] hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
@@ -524,43 +595,38 @@ export default function NotesPage() {
           </div>
         )}
         
-        {/* Catatan yang "Blurred" atau tidak dapat diakses karena melebihi kuota */}
-        {user && !editing && actualNotesCount > (notesCountQuota > 0 ? notesCountQuota : FREE_NOTES_QUOTA_BASE) && !isLoading && !isLoadingQuota && (
+        {user && !editing && actualNotesCount > (notesCountQuota > 0 ? notesCountQuota : FREE_NOTES_QUOTA_BASE) && !showPageLoadingIndicator && (
             <div className="mt-6">
                 <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-3 text-center">Notes Beyond Quota</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {notes.slice(notesCountQuota > 0 ? notesCountQuota : FREE_NOTES_QUOTA_BASE).map((note) => (
-                  <div
-                    key={note.id}
-                    className="border border-dashed border-gray-300 dark:border-slate-600 p-4 rounded-md bg-gray-50 dark:bg-slate-800/50 opacity-60 relative flex flex-col justify-between min-h-[150px]"
-                  >
-                    <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-800 text-xs px-2 py-0.5 rounded-sm font-semibold shadow-sm z-10">
-                        Over Quota
-                    </div>
-                    {/* ... (Konten card catatan blurred, mirip dengan visible tapi mungkin dengan interaksi terbatas) ... */}
-                    <div> 
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm text-gray-400 dark:text-gray-500">
-                          {new Date(note.date || note.created_at).toLocaleDateString() || "No Date"}
-                        </span>
-                        {/* Tombol edit/delete bisa disembunyikan atau dinonaktifkan untuk notes over quota */}
+                    <div
+                      key={note.id}
+                      className="border border-dashed border-gray-300 dark:border-slate-600 p-4 rounded-md bg-gray-50 dark:bg-slate-800/50 opacity-60 relative flex flex-col justify-between min-h-[150px]"
+                    >
+                      <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-800 text-xs px-2 py-0.5 rounded-sm font-semibold shadow-sm z-10">
+                          Over Quota
                       </div>
-                      <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-300 break-words">
-                        {note.title || "Untitled"}
-                      </h2>
-                      <p className="text-sm mt-2 text-gray-500 dark:text-gray-400 break-words whitespace-pre-wrap max-h-24 overflow-y-auto">
-                        {note.content}
-                      </p>
+                      <div> 
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm text-gray-400 dark:text-gray-500">
+                            {new Date(note.date || note.created_at).toLocaleDateString() || "No Date"}
+                          </span>
+                        </div>
+                        <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-300 break-words">
+                          {note.title || "Untitled"}
+                        </h2>
+                        <p className="text-sm mt-2 text-gray-500 dark:text-gray-400 break-words whitespace-pre-wrap max-h-24 overflow-y-auto">
+                          {note.content}
+                        </p>
+                      </div>
                     </div>
-                  </div>
                 ))}
                 </div>
             </div>
         )}
 
-
-        {/* ... (Modal konfirmasi delete dan Script jsPDF tetap sama) ... */}
-         {showConfirmDelete && (
+        {showConfirmDelete && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-slate-800 p-6 rounded-md shadow-lg text-center w-full max-w-sm m-4">
               <p className="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">
@@ -569,14 +635,14 @@ export default function NotesPage() {
               <div className="flex justify-center gap-4">
                 <button
                   onClick={confirmDelete}
-                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
+                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors hover:cursor-pointer"
                   disabled={isLoading}
                 >
                   {isLoading ? "Deleting..." : "Delete"}
                 </button>
                 <button
                   onClick={cancelDelete}
-                  className="bg-gray-300 dark:bg-gray-600 px-4 py-2 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+                  className="bg-gray-300 dark:bg-gray-600 px-4 py-2 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors hover:cursor-pointer"
                   disabled={isLoading}
                 >
                   Cancel
