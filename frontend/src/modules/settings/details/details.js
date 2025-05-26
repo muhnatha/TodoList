@@ -312,6 +312,7 @@ export default function SettingsDetailsPage() {
                             className={`block rounded-sm border-1 mt-1 p-2 text-sm text-black/50 font-bold w-full ${isEmailDisabled ? 'hover:cursor-not-allowed bg-gray-100' : 'hover:cursor-text bg-white/50'}`} 
                             value={email} onChange={(e) => setEmail(e.target.value)} 
                             disabled={isEmailDisabled}/>
+                            {/* Can't change email here, must be add 1 more input column for 'new email' like reset password */}
                             {/* <button
                                 type="button"
                                 className="absolute right-2 top-3 flex items-center

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'
 import PageLayout from "@/components/PageLayout"
 import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
-import { addTask } from '../action' // Server Action
+import { addTask } from '@/app/action' // Server Action
 import { useActionState } from 'react'
 import { CirclePlus, Calendar, Tag, Clock } from "lucide-react"
 import TaskForm from '@/components/TaskForm'

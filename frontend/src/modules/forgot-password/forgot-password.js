@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
 import { translateSupabaseError } from '../../lib/translateError';
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -78,10 +78,7 @@ export default function LoginPage() {
               {errorMsg && <p>{errorMsg}</p>}
             </div>
             <button type="submit" className='justify-center rounded-sm py-1 w-full hover:cursor-pointer bg-[#5051F9]/50'><span className='font-bold'>LOGIN</span></button>
-            <div className='flex flex-row justify-between items-center w-full'>
-              <p className='text-sm'>Don't have account? <a href='/signup' className='font-bold hover:underline'>Sign Up</a></p>
-              <a href='/forgot-password' className='text-sm font-bold hover:underline'>Forgot password?</a>
-            </div>
+            <p className='text-sm'>Don't have account? <a href='/signup' className='font-bold'>Sign Up</a></p>
           </div>
         </div>
       </form>
