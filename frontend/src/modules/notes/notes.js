@@ -415,7 +415,7 @@ export default function NotesPage() {
               My Notes
             </h1>
             {user && !isLoadingQuota && ( // Show count when quota is not loading
-              <span className={`ml-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full ${actualNotesCount === notesCountQuota ? 'bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200' : ''}`}>
+              <span className={`ml-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full ${actualNotesCount >= notesCountQuota ? 'bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200' : ''}`}>
                 {actualNotesCount}/{notesCountQuota > 0 ? notesCountQuota : FREE_NOTES_QUOTA_BASE}
               </span>
             )}
