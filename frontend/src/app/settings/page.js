@@ -1,5 +1,12 @@
-import { redirect} from 'next/navigation'
+'use client';
+import dynamic from 'next/dynamic';
+
+const Settings = dynamic(() => import('@/modules/settings/settings'), {
+  ssr: false,
+});
 
 export default function SettingsPage() {
-  redirect ('/settings/details')
+    return (
+        <Settings />
+    )
 }
