@@ -8,84 +8,100 @@ import { usePathname } from 'next/navigation'
 import Link from "next/link"
 import { supabase } from "@/lib/supabaseClient"
 
-async function fetchUserProfile() {
-  // Get the currently authenticated user
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    console.error("Error fetching user or no user logged in:", userError?.message || "No user session");
-    return null; // Return null if no user or error
-  }
-
-  // Fetch the profile for this user
-  const { data: profile, error: profileError } = await supabase
+// Fetch user profile by user ID
+async function fetchUserProfile(userId) {
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('email')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single();
 
-  if (profileError) {
-    if (profileError.code !== 'PGRST116') { // PGRST116 means 0 rows, not necessarily an "error"
-        console.error("Error fetching profile:", profileError.message);
+  if (error) {
+    if (error.code !== 'PGRST116') { // PGRST116 means no rows returned
+      console.error("Error fetching profile:", error.message);
     } else {
-        console.log("No profile found for user ID:", user.id);
+      console.log("No profile found for user ID:", userId);
     }
-    return null; // Return null if profile not found or error
+    return null;
   }
   
   console.log("Fetched user profile:", profile);
-  return profile; // Returns the profile object or null
+  return profile;
 }
 
-export default function SettingsBillingPage() {
+// Fetch activity logs for the user
+async function fetchActivityLogs(userId) {
+  const { data: logs, error } = await supabase
+    .from('activity_log')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error("Error fetching activity logs:", error.message);
+    return [];
+  }
+  return logs;
+}
+
+export default function SettingsActivityLogPage() {
   const pathname = usePathname();
   const [userProfile, setUserProfile] = useState(null);
+  const [activityLogs, setActivityLogs] = useState([]);
 
   useEffect(() => {
-    async function loadProfile() {
-      const profile = await fetchUserProfile();
-      setUserProfile(profile);
-    }
-    loadProfile();
-  }, []);
+    async function loadData() {
+      // Get the currently authenticated user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error("Error fetching user or no user logged in:", userError?.message || "No user session");
+        return;
+      }
 
+      // Fetch profile and logs using the user ID
+      const profile = await fetchUserProfile(user.id);
+      setUserProfile(profile);
+      const logs = await fetchActivityLogs(user.id);
+      setActivityLogs(logs);
+    }
+    loadData();
+  }, []);
 
   let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; // Default
   let avatarFallback = 'U';
   let userEmail = 'User';
 
   if (userProfile) {
-      userEmail = userProfile.email || 'User';
-      // Prefer avatar_url from profiles table, then from auth.user.user_metadata, then ui-avatars
-      avatarSrc = userProfile.avatar_url || // from 'profiles' table
-                  userProfile.user_metadata?.avatar_url || // from 'auth.users' table
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
-      
-      if (userEmail && userEmail.includes('@')) {
-          avatarFallback = userEmail.substring(0, 2).toUpperCase();
-      } else if (userEmail) {
-          avatarFallback = userEmail.substring(0, 1).toUpperCase();
-      }
+    userEmail = userProfile.email || 'User';
+    // Note: avatar_url is not fetched from profiles; adjust if it exists in your schema
+    avatarSrc = userProfile.avatar_url || // from 'profiles' table (if added later)
+                userProfile.user_metadata?.avatar_url || // from 'auth.users' (not applicable here)
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
+    
+    if (userEmail && userEmail.includes('@')) {
+      avatarFallback = userEmail.substring(0, 2).toUpperCase();
+    } else if (userEmail) {
+      avatarFallback = userEmail.substring(0, 1).toUpperCase();
+    }
   }
 
   const navSettings = [
-        { href: "/settings/details", text: "My Details"},
-        { href: "/settings/password", text: "Password"},
-        { href: "/settings/billing", text: "Billing"},
-        { href: "/settings/log", text: "Activity Log"}
-    ];
+    { href: "/settings/details", text: "My Details" },
+    { href: "/settings/password", text: "Password" },
+    { href: "/settings/billing", text: "Billing" },
+    { href: "/settings/log", text: "Activity Log" }
+  ];
 
-    const renderNavSettings = (item, index) => (
-        <li key={index}>
-            {
-                <a
-                    href={item.href}
-                    className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'} text-sm sm:text-md text-[#232360]`}
-                >
-                    {item.text}
-                </a>
-            }
-        </li>
-    );
+  const renderNavSettings = (item, index) => (
+    <li key={index}>
+      <a
+        href={item.href}
+        className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'} text-sm sm:text-md text-[#232360]`}
+      >
+        {item.text}
+      </a>
+    </li>
+  );
 
   return (
     <PageLayout title="SETTINGS">
@@ -100,23 +116,23 @@ export default function SettingsBillingPage() {
       </div>
 
       <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60] flex justify-between items-end">
-          <div className="flex items-end space-x-7">
-              <div className="relative w-24 h-24 flex items-center justify-center">
-                  <Avatar className={"w-16 h-16"}>
-                      <AvatarImage src={avatarSrc} />
-                      <AvatarFallback>{avatarFallback}</AvatarFallback>
-                  </Avatar>
-                  <button 
-                      aria-label="Edit profile picture"
-                      className="absolute bottom-3 right-3 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
-                  >
-                      <PencilIcon className="w-4 h-4" />
-                  </button>
-              </div>
-              <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#03030b]">
-              Settings
-              </h1>
+        <div className="flex items-end space-x-7">
+          <div className="relative w-24 h-24 flex items-center justify-center">
+            <Avatar className="w-16 h-16">
+              <AvatarImage src={avatarSrc} />
+              <AvatarFallback>{avatarFallback}</AvatarFallback>
+            </Avatar>
+            <button 
+              aria-label="Edit profile picture"
+              className="absolute bottom-3 right-3 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
+            >
+              <PencilIcon className="w-4 h-4" />
+            </button>
           </div>
+          <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#03030b]">
+            Settings
+          </h1>
+        </div>
       </div>
 
       <div className="p-6"> 
@@ -138,13 +154,20 @@ export default function SettingsBillingPage() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Day, dd/mm/yy</td>
-              <td>Note</td>
-              <td>Title Name</td>
-              <td>Cloud Computing {'>'} Cloud Computinggg</td>
-            </tr>
-            {/*Ini nanti buat log activity dari session*/}
+            {activityLogs.length > 0 ? (
+              activityLogs.map((log) => (
+                <tr key={log.id}>
+                  <td>{new Date(log.created_at).toLocaleString()}</td>
+                  <td>{log.page}</td>
+                  <td>{log.action}</td>
+                  <td>{log.details}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="4">No activity logs available.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

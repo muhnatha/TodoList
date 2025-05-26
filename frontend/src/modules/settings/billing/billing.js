@@ -5,9 +5,6 @@ import Image from "next/image"
 import { PencilIcon } from "lucide-react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { usePathname } from 'next/navigation'
-import { useActionState } from 'react' 
-// import { confirmBilling } from '@/app/action' 
-import BillForm from "@/components/BillForm" 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { supabase } from '@/lib/supabaseClient'
@@ -22,7 +19,6 @@ async function fetchUserProfile() {
     return null;
   }
 
-  // notes_current_total_quota dan todos_current_total_quota
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('notes_current_total_quota, todos_current_total_quota, id, email') 
@@ -31,9 +27,9 @@ async function fetchUserProfile() {
 
   if (profileError) {
     if (profileError.code !== 'PGRST116') {
-        console.error("Error fetching profile from Supabase:", profileError.message);
+      console.error("Error fetching profile from Supabase:", profileError.message);
     } else {
-        console.log("No profile found for user ID:", user.id);
+      console.log("No profile found for user ID:", user.id);
     }
     return null;
   }
@@ -42,20 +38,14 @@ async function fetchUserProfile() {
   return profile;
 }
 
-// const initialState = { // Hapus atau sesuaikan jika confirmBilling tidak digunakan
-//   message: '',
-//   success: false,
-// };
-
 export default function SettingsBillingPage() {
-  const [showForm, setShowForm] = useState(false); // Hapus jika BillForm tidak digunakan
-  // const [state, formAction] = useActionState(confirmBilling, initialState); // Hapus jika tidak digunakan
+  const [showForm] = useState(false);
   const pathname = usePathname();
-  const [taskCount, setTaskCount] = useState(FREE_TODOS_QUOTA_BASE); // MODIFIKASI: State untuk total kuota To-Do
-  const [notesCount, setNotesCount] = useState(FREE_NOTES_QUOTA_BASE); // MODIFIKASI: State untuk total kuota Notes
+  const [taskCount, setTaskCount] = useState(FREE_TODOS_QUOTA_BASE);
+  const [notesCount, setNotesCount] = useState(FREE_NOTES_QUOTA_BASE);
   const [profileId, setProfileId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [userProfile, setUserProfile] = useState(null); // State untuk menyimpan profil pengguna
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -65,7 +55,6 @@ export default function SettingsBillingPage() {
 
         if (userProfile) {
           setUserProfile(userProfile);
-          // MODIFIKASI: Menggunakan kolom total kuota yang baru
           if (userProfile.hasOwnProperty('todos_current_total_quota')) {
             setTaskCount(userProfile.todos_current_total_quota);
           } else {
@@ -101,22 +90,21 @@ export default function SettingsBillingPage() {
     loadInitialData();
   }, []);
 
-  let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; // Default
+  let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`;
   let avatarFallback = 'U';
   let userEmail = 'User';
 
   if (userProfile) {
-      userEmail = userProfile.email || 'User';
-      // Prefer avatar_url from profiles table, then from auth.user.user_metadata, then ui-avatars
-      avatarSrc = userProfile.avatar_url || // from 'profiles' table
-                  userProfile.user_metadata?.avatar_url || // from 'auth.users' table
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
-      
-      if (userEmail && userEmail.includes('@')) {
-          avatarFallback = userEmail.substring(0, 2).toUpperCase();
-      } else if (userEmail) {
-          avatarFallback = userEmail.substring(0, 1).toUpperCase();
-      }
+    userEmail = userProfile.email || 'User';
+    avatarSrc = userProfile.avatar_url ||
+                userProfile.user_metadata?.avatar_url ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
+    
+    if (userEmail && userEmail.includes('@')) {
+      avatarFallback = userEmail.substring(0, 2).toUpperCase();
+    } else if (userEmail) {
+      avatarFallback = userEmail.substring(0, 1).toUpperCase();
+    }
   }
 
   async function recalculateAndUpdateProfileQuota(userId, packageType) {
@@ -167,7 +155,7 @@ export default function SettingsBillingPage() {
     setIsLoading(true);
     const purchaseTime = new Date();
     const expiryTime = new Date(purchaseTime.getTime());
-    expiryTime.setMinutes(purchaseTime.getMinutes() + 3); // Tambah 30 hari
+    expiryTime.setMinutes(purchaseTime.getMinutes() + 3);
 
     const { data: newPackage, error: purchaseError } = await supabase
       .from('quota_packages')
@@ -191,6 +179,19 @@ export default function SettingsBillingPage() {
 
     console.log(`${packageType} package purchased:`, newPackage);
     await recalculateAndUpdateProfileQuota(profileId, packageType);
+
+    const { error: logError } = await supabase.from('activity_log').insert({
+      user_id: profileId,
+      page: 'Billing',
+      action: 'Updated',
+      details: `Purchased ${itemsToAdd} additional ${packageType} quota`,
+      created_at: new Date().toISOString()
+    });
+
+    if (logError) {
+      console.error('Error logging billing purchase activity:', logError.message);
+    }
+
     setIsLoading(false);
     alert(`Berhasil menambahkan ${itemsToAdd} ${packageType === 'notes' ? 'catatan' : 'tugas'} ke kuota Anda selama 30 hari!`);
   }
@@ -216,31 +217,43 @@ export default function SettingsBillingPage() {
     }
 
     await recalculateAndUpdateProfileQuota(profileId, packageType);
+
+    const { error: logError } = await supabase.from('activity_log').insert({
+      user_id: profileId,
+      page: 'Billing',
+      action: 'Updated',
+      details: `Reset ${packageType} quota to free tier`,
+      created_at: new Date().toISOString()
+    });
+
+    if (logError) {
+      console.error('Error logging billing reset activity:', logError.message);
+    }
+
     setIsLoading(false);
     alert(`Kuota ${packageType === 'notes' ? 'catatan' : 'tugas'} telah diatur ulang ke paket gratis.`);
   }
 
   const navSettings = [
-        { href: "/settings/details", text: "My Details"},
-        { href: "/settings/password", text: "Password"},
-        { href: "/settings/billing", text: "Billing"},
-        { href: "/settings/log", text: "Activity Log"}
-    ];
+    { href: "/settings/details", text: "My Details"},
+    { href: "/settings/password", text: "Password"},
+    { href: "/settings/billing", text: "Billing"},
+    { href: "/settings/log", text: "Activity Log"}
+  ];
 
-    const renderNavSettings = (item, index) => (
-        <li key={index}>
-            <a 
-                href={item.href}
-                className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'} text-sm sm:text-md text-[#232360]`}
-            >
-                {item.text}
-            </a>
-        </li>
-    );
+  const renderNavSettings = (item, index) => (
+    <li key={index}>
+      <a 
+        href={item.href}
+        className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'} text-sm sm:text-md text-[#232360]`}
+      >
+        {item.text}
+      </a>
+    </li>
+  );
 
   return (
     <PageLayout title="SETTINGS">
-      {/* ... Bagian Image, BillForm, Avatar, dll. tetap sama ... */}
       <div className="w-full h-2/5 relative">
         <Image 
           src="/bg-settings.svg"
@@ -251,32 +264,26 @@ export default function SettingsBillingPage() {
         />
       </div>
 
-      {showForm &&  ( 
-        <BillForm 
-        //   formAction={formAction} 
-        //   state={state} 
-          setShowForm={setShowForm} 
-        />
-      )}
+      {showForm && <div>Form placeholder</div>}
 
       <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60] flex justify-between items-end">
-          <div className="flex items-end space-x-7">
-              <div className="relative w-24 h-24 flex items-center justify-center">
-                  <Avatar className={"w-16 h-16"}>
-                      <AvatarImage src={avatarSrc} />
-                      <AvatarFallback>{avatarFallback}</AvatarFallback>
-                  </Avatar>
-                  <button 
-                      aria-label="Edit profile picture"
-                      className="absolute bottom-3 right-3 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
-                  >
-                      <PencilIcon className="w-4 h-4" />
-                  </button>
-              </div>
-              <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#03030b]">
-              Settings
-              </h1>
+        <div className="flex items-end space-x-7">
+          <div className="relative w-24 h-24 flex items-center justify-center">
+            <Avatar className="w-16 h-16">
+              <AvatarImage src={avatarSrc} />
+              <AvatarFallback>{avatarFallback}</AvatarFallback>
+            </Avatar>
+            <button 
+              aria-label="Edit profile picture"
+              className="absolute bottom-3 right-3 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
+            >
+              <PencilIcon className="w-4 h-4" />
+            </button>
           </div>
+          <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#03030b]">
+            Settings
+          </h1>
+        </div>
       </div>
 
       <div className="p-6"> 
@@ -288,18 +295,15 @@ export default function SettingsBillingPage() {
       </div>
       
       <div className="flex flex-col gap-6">
-        {/* BAGIAN TO-DO LIST */}
         <div className="flex flex-row flex-wrap lg:flex-nowrap w-full items-center justify-center text-[#232360]">
           <p className="lg:w-20 text-center text-semibold">TO-DO LIST</p>
           <div className="flex flex-row gap-6 items-center w-full">
             <div className="w-1/3 text-center lg:px-10 bg-[#D9D9D9] rounded-md hover:bg-[#A0A0A0]">
               <Button
-                // MODIFIKASI: onClick untuk To-Do
                 onClick={() => handleResetToFreeTier('todos')}
                 disabled={isLoading}
                 className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
               >
-                {/* ... Konten Tombol FREE ... */}
                 <div className="flex flex-col justify-center items-center">
                   <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">FREE</h1>
                   <p className="text-sm mt-8 mb-[-20] min-[756px]:mb-0">User got free {FREE_TODOS_QUOTA_BASE} to-do items</p>
@@ -308,12 +312,10 @@ export default function SettingsBillingPage() {
             </div>
             <div className="w-1/3 bg-[#8FEBFF] rounded-md hover:bg-[#1FABAF] transition-colors">
               <Button 
-                // MODIFIKASI: onClick untuk To-Do
                 onClick={() => handlePurchaseQuotaPackage('todos', 5)}
                 disabled={isLoading}
                 className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
               >
-                {/* ... Konten Tombol +5 ... */}
                 <div className="flex flex-col justify-center items-center text-center">
                   <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">+5</h1>
                   <sub className="font-light">add 5 to-do items</sub>
@@ -323,12 +325,10 @@ export default function SettingsBillingPage() {
             </div>
             <div className="w-1/3 lg:px-10 bg-[#1EA7FF] rounded-md hover:bg-[#1E57AF]">
               <Button 
-                // MODIFIKASI: onClick untuk To-Do
                 onClick={() => handlePurchaseQuotaPackage('todos', 10)}
                 disabled={isLoading}
                 className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
               >
-                {/* ... Konten Tombol +10 ... */}
                 <div className="flex flex-col justify-center items-center">
                   <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">+10</h1>
                   <sub className="font-light">add 10 to-do items</sub>
@@ -339,13 +339,11 @@ export default function SettingsBillingPage() {
           </div>
         </div>
 
-        {/* BAGIAN NOTES */}
         <div className="flex flex-row flex-wrap lg:flex-nowrap w-full items-center justify-center text-[#232360] mb-5">
           <p className="w-20 text-center text-semibold">NOTES</p>
           <div className="flex flex-row gap-6 text-center items-center w-full">
             <div className="w-1/3 text-center lg:px-10 bg-[#D9D9D9] rounded-md hover:bg-[#A0A0A0] transition-colors">
               <Button
-                // MODIFIKASI: onClick untuk Notes
                 onClick={() => handleResetToFreeTier('notes')}
                 disabled={isLoading}
                 className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
@@ -358,7 +356,6 @@ export default function SettingsBillingPage() {
             </div>
             <div className="w-1/3 bg-[#8FEBFF] rounded-md hover:bg-[#1FABAF] transition-colors">
               <Button
-                // MODIFIKASI: onClick untuk Notes
                 onClick={() => handlePurchaseQuotaPackage('notes', 5)}
                 disabled={isLoading}
                 className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
@@ -372,7 +369,6 @@ export default function SettingsBillingPage() {
             </div>
             <div className="w-1/3 bg-[#1EA7FF] rounded-md hover:bg-[#1E57AF] transition-colors">
               <Button
-                // MODIFIKASI: onClick untuk Notes
                 onClick={() => handlePurchaseQuotaPackage('notes', 10)}
                 disabled={isLoading}
                 className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
