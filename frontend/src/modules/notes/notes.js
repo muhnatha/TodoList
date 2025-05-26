@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react"; // Added useRef
+import { useState, useEffect, useRef } from "react";
 import PageLayout from "@/components/PageLayout";
 import { ArrowDownToLine, MessageCircleX, Pencil, Trash2, PlusCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
@@ -63,13 +63,12 @@ async function updateUserQuotaAndHandleExpiryForNotes(userId, setNotesCountQuota
     return currentTotalNotesQuota;
   } catch (error) {
     console.error("Unexpected error in updateUserQuotaAndHandleExpiryForNotes:", error.message);
-    setNotesCountQuotaHook(FREE_NOTES_QUOTA_BASE); // Fallback to base quota on error
+    setNotesCountQuotaHook(FREE_NOTES_QUOTA_BASE);
     return FREE_NOTES_QUOTA_BASE;
   } finally {
     setIsLoadingQuotaHook(false);
   }
 }
-
 
 export default function NotesPage() {
   const [notes, setNotes] = useState([]);
@@ -116,7 +115,7 @@ export default function NotesPage() {
       }
       isInitializingRef.current = true;
       setIsLoading(true);
-      setIsLoadingQuota(true); 
+      setIsLoadingQuota(true);
       try {
         if (!sessionUser) {
           console.log("No user session, setting defaults.");
@@ -124,7 +123,7 @@ export default function NotesPage() {
           currentUserIdRef.current = null;
           setNotes([]);
           setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
-          return; // Exit early
+          return;
         }
 
         if (sessionUser.id !== currentUserIdRef.current) {
@@ -141,19 +140,16 @@ export default function NotesPage() {
           currentUserIdRef.current = null;
           setNotes([]);
           setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
-          // Ensure loading states are false even if an error occurs within the try block
       } finally {
         setIsLoading(false);
-        // setIsLoadingQuota is handled by updateUserQuotaAndHandleExpiryForNotes's finally block
         isInitializingRef.current = false;
       }
     };
 
-    // Initial check for session on component mount
     supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
         if (sessionError) {
             console.error("Error getting initial session:", sessionError.message);
-            await initializePage(null); // Initialize with no user
+            await initializePage(null);
         } else {
             await initializePage(session?.user || null);
         }
@@ -163,42 +159,30 @@ export default function NotesPage() {
       async (event, session) => {
         console.log("Auth event:", event, "Current User ID:", currentUserIdRef.current, "Session User ID:", session?.user?.id);
         if (event === "SIGNED_IN") {
-          // Only re-initialize if user ID actually changed or was previously null
           if (session?.user && session.user.id !== currentUserIdRef.current) {
             console.log("User changed or newly signed in, re-initializing.");
             await initializePage(session.user);
           } else if (session?.user && currentUserIdRef.current === null) {
-            // This handles the case where initial session was null, then user signs in
             console.log("User signed in (was previously null), re-initializing.");
             await initializePage(session.user);
           } else if (session?.user && !isLoading && !isLoadingQuota) {
-            // If user is the same, but we are not loading, perhaps a token refresh.
-            // We might want to gently re-validate quota without full page loading visuals
-            // For now, if user is same and no loading, do nothing to prevent flicker
             console.log("Auth event SIGNED_IN for same user, no re-initialization needed if not loading.");
           }
         } else if (event === "SIGNED_OUT") {
           console.log("User signed out, resetting page.");
-          // Ensure state is reset properly without full re-initialization logic for signed out
-          isInitializingRef.current = true; // Prevent initializePage from running if it's triggered elsewhere
+          isInitializingRef.current = true;
           setUser(null);
           currentUserIdRef.current = null;
           setNotes([]);
           setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
-          setIsLoading(false); 
+          setIsLoading(false);
           setIsLoadingQuota(false);
           isInitializingRef.current = false;
         } else if (event === "TOKEN_REFRESHED" && session?.user) {
-            // If token is refreshed, user is still the same.
-            // We might want to silently update quota in background if needed,
-            // but avoid full page reload if user context hasn't changed.
             console.log("Token refreshed for user:", session.user.id, "Checking quota.");
             if (session.user.id === currentUserIdRef.current) {
-                 // Silently update quota without triggering main page loading indicators
-                const previousIsLoadingQuota = isLoadingQuota; // Store previous state
-                // setIsLoadingQuota(true); // Momentarily show quota loading if desired
+                const previousIsLoadingQuota = isLoadingQuota;
                 await updateUserQuotaAndHandleExpiryForNotes(session.user.id, setNotesCountQuota, setIsLoadingQuota);
-                // setIsLoadingQuota(previousIsLoadingQuota); // Restore or let the function handle it
             }
         }
       }
@@ -207,7 +191,7 @@ export default function NotesPage() {
     return () => {
       subscription?.unsubscribe();
     };
-  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
+  }, []);
 
   const handleCreate = () => {
     if (notes.length >= notesCountQuota && notesCountQuota > 0) {
@@ -264,7 +248,7 @@ export default function NotesPage() {
       }
     }
 
-    setIsLoading(true); // Loading for save process
+    setIsLoading(true);
     let error;
     const noteData = {
       user_id: user.id,
@@ -280,25 +264,52 @@ export default function NotesPage() {
         .eq("id", currentNote.id)
         .eq("user_id", user.id);
       error = updateError;
+
+      if (!error) {
+        // Log aktivitas: Note diperbarui
+        const { error: logError } = await supabase
+          .from('activity_log')
+          .insert({
+            user_id: user.id,
+            page: 'Notes',
+            action: 'Updated',
+            details: `Updated note "${currentNote.title || 'Untitled'}"`,
+            created_at: new Date().toISOString()
+          });
+        if (logError) console.error("Error logging note update activity:", logError.message);
+      }
     } else {
       const { error: insertError } = await supabase
         .from("notes")
         .insert(noteData)
         .select();
       error = insertError;
+
+      if (!error) {
+        // Log aktivitas: Note baru dibuat
+        const { error: logError } = await supabase
+          .from('activity_log')
+          .insert({
+            user_id: user.id,
+            page: 'Notes',
+            action: 'Created',
+            details: `Created new note "${currentNote.title || 'Untitled'}"`,
+            created_at: new Date().toISOString()
+          });
+        if (logError) console.error("Error logging note creation activity:", logError.message);
+      }
     }
 
     if (error) {
       console.error("Error saving note:", error.message);
       alert("Error saving note: " + error.message);
     } else {
-      // Re-fetch notes and update quota (which also sets its own loading)
       const currentQuota = await updateUserQuotaAndHandleExpiryForNotes(user.id, setNotesCountQuota, setIsLoadingQuota);
-      await fetchUserNotes(user.id); // Pass currentQuota if fetchUserNotes needs it for display slicing
+      await fetchUserNotes(user.id);
       setEditing(false);
       setCurrentNote({ id: null, title: "", content: "", date: "" });
     }
-    setIsLoading(false); // Done loading save process
+    setIsLoading(false);
   };
 
   const handleNewNote = () => {
@@ -322,7 +333,11 @@ export default function NotesPage() {
 
   const confirmDelete = async () => {
     if (!user || !noteIdToDelete) return;
-    setIsLoading(true); // Loading for delete process
+    setIsLoading(true);
+
+    const noteToDelete = notes.find(note => note.id === noteIdToDelete);
+    const noteTitle = noteToDelete ? noteToDelete.title || 'Untitled' : 'Unknown';
+
     const { error } = await supabase
       .from("notes")
       .delete()
@@ -333,12 +348,24 @@ export default function NotesPage() {
       console.error("Error deleting note:", error.message);
       alert("Error deleting note: " + error.message);
     } else {
+      // Log aktivitas: Note dihapus
+      const { error: logError } = await supabase
+        .from('activity_log')
+        .insert({
+          user_id: user.id,
+          page: 'Notes',
+          action: 'Deleted',
+          details: `Deleted note "${noteTitle}"`,
+          created_at: new Date().toISOString()
+        });
+      if (logError) console.error("Error logging note deletion activity:", logError.message);
+
       const currentQuota = await updateUserQuotaAndHandleExpiryForNotes(user.id, setNotesCountQuota, setIsLoadingQuota);
       await fetchUserNotes(user.id);
     }
     setShowConfirmDelete(false);
     setNoteIdToDelete(null);
-    setIsLoading(false); // Done loading delete process
+    setIsLoading(false);
   };
 
   const cancelDelete = () => {
@@ -357,35 +384,31 @@ export default function NotesPage() {
     const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
     const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
     
-    const margin = 20; // Page margin
+    const margin = 20;
     const maxLineWidth = pageWidth - margin * 2;
-    let currentY = margin; // Start Y position for text
+    let currentY = margin;
 
-    // Title
     doc.setFontSize(18);
     doc.text(note.title || "Untitled", margin, currentY);
-    currentY += 10; // Move Y down
+    currentY += 10;
 
-    // Date
     doc.setFontSize(12);
     doc.text(new Date(note.date || note.created_at).toLocaleDateString() || "No date", margin, currentY);
-    currentY += 10; // Move Y down for content
+    currentY += 10;
 
-    doc.setFontSize(12); 
+    doc.setFontSize(12);
     const noteContent = note.content || "No content.";
-    
-    const contentToPrint = noteContent; 
-
+    const contentToPrint = noteContent;
 
     const lines = doc.splitTextToSize(contentToPrint, maxLineWidth);
     
     lines.forEach(line => {
-        if (currentY + 10 > pageHeight - margin) { // Check if new page is needed (10 is approx line height)
+        if (currentY + 10 > pageHeight - margin) {
             doc.addPage();
-            currentY = margin; // Reset Y for new page
+            currentY = margin;
         }
         doc.text(line, margin, currentY);
-        currentY += 7; // Increment Y for next line (adjust line spacing as needed)
+        currentY += 7;
     });
 
     doc.save(`${note.title || "note"}-${new Date().toISOString().split('T')[0]}.pdf`);
@@ -414,12 +437,12 @@ export default function NotesPage() {
             <h1 className="text-2xl md:text-3xl font-bold text-[#1D1C3B] dark:text-slate-100">
               My Notes
             </h1>
-            {user && !isLoadingQuota && ( // Show count when quota is not loading
+            {user && !isLoadingQuota && (
               <span className={`ml-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full ${actualNotesCount >= notesCountQuota ? 'bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200' : ''}`}>
                 {actualNotesCount}/{notesCountQuota > 0 ? notesCountQuota : FREE_NOTES_QUOTA_BASE}
               </span>
             )}
-             {(isLoadingQuota && user) && ( // Show placeholder when quota is loading
+             {(isLoadingQuota && user) && (
                 <span className="ml-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full animate-pulse">
                     --/--
                 </span>
@@ -438,7 +461,7 @@ export default function NotesPage() {
           )}
         </div>
 
-        {!user && !showPageLoadingIndicator && ( // Show only if not loading and no user
+        {!user && !showPageLoadingIndicator && (
           <div className="text-center py-10">
             <p className="text-lg text-gray-600 dark:text-gray-400">
               Please log in to manage your notes.
@@ -446,7 +469,7 @@ export default function NotesPage() {
           </div>
         )}
 
-        {user && !editing && !showPageLoadingIndicator && ( // Content when user exists, not editing, and not loading
+        {user && !editing && !showPageLoadingIndicator && (
           <>
             {(isOverQuota || isAtFreeQuotaLimitWithZeroPaidQuota) && (
               <div className="p-4 mb-4 text-sm text-center text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
@@ -482,7 +505,7 @@ export default function NotesPage() {
           </>
         )}
         
-        {user && editing && ( // Form editor - assumes not loading if editing
+        {user && editing && (
           <div className="border dark:border-slate-700 p-6 rounded-md shadow-md bg-white dark:bg-slate-800 w-full max-w-3xl mx-auto relative">
             <div className="flex justify-between items-center mb-2">
               <input
@@ -497,7 +520,7 @@ export default function NotesPage() {
                 <button
                   onClick={handleSave}
                   title="Save Note"
-                  disabled={isLoading} // Disable save if any loading operation is in progress
+                  disabled={isLoading}
                   className="text-slate-600 dark:text-slate-300 hover:text-[#6B5CFF] dark:hover:text-[#8A7FFF] hover:cursor-pointer disabled:opacity-50"
                 >
                   <ArrowDownToLine />
@@ -570,7 +593,7 @@ export default function NotesPage() {
                         title="Download PDF"
                         className="text-slate-600 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 hover:cursor-pointer"
                       >
-                        <ArrowDownToLine size={18}/> {/* Changed to Lucide Icon */}
+                        <ArrowDownToLine size={18}/>
                       </button>
                     </div>
                   </div>
