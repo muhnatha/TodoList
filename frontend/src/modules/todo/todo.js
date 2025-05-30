@@ -1,26 +1,34 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import PageLayout from "@/components/PageLayout"
 import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
-import { addTask } from '@/app/action' // Server Action
-import { useActionState } from 'react'
-import { CirclePlus, Calendar, Tag, Clock } from "lucide-react"
+import { addTask } from '@/app/action' 
+import { useActionState } from 'react' 
+import { CirclePlus, Calendar, Tag, Clock, Edit3, Trash2, CheckCircle, XCircle, AlertTriangle, BadgeCheck } from "lucide-react" 
 import TaskForm from '@/components/TaskForm'
 import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
 
-// Konstanta kuota gratis untuk To-Do
 const FREE_TODOS_QUOTA_BASE = 5;
 
-const initialState = {
+const initialActionState = {
   message: '',
   success: false,
-  task: null,
+  task: null
 };
 
 const formatDate = (dateString) => {
   if (!dateString) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    const [year, month, day] = dateString.split('-');
+    return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC', 
+    });
+  }
   return new Date(dateString).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
@@ -33,22 +41,19 @@ async function fetchTasks(userId) {
     console.error("User ID not provided to fetchTasks");
     return [];
   }
-  // Ambil semua task, urutkan dari yang terbaru agar logic .slice() bekerja benar
-  // untuk menyembunyikan task yang "lebih baru" jika kuota berkurang
   const { data, error } = await supabase
     .from('task')
     .select('*')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false }); // Terbaru di atas
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error("Error fetching tasks:", error.message);
     return [];
   }
-  return data || []; // Kembalikan array kosong jika data null
+  return data || [];
 }
 
-// Fungsi untuk menangani kedaluwarsa paket dan menghitung ulang kuota To-Do
 async function updateUserQuotaAndHandleExpiryForTodos(userId, setTaskCountQuotaHook, setIsLoadingQuotaHook) {
   if (!userId) {
     setIsLoadingQuotaHook(false);
@@ -57,10 +62,8 @@ async function updateUserQuotaAndHandleExpiryForTodos(userId, setTaskCountQuotaH
     return FREE_TODOS_QUOTA_BASE;
   }
   setIsLoadingQuotaHook(true);
-
   const now = new Date().toISOString();
 
-  // 1. Nonaktifkan paket 'todos' yang sudah kedaluwarsa
   const { error: expiryUpdateError } = await supabase
     .from('quota_packages')
     .update({ is_active: false })
@@ -68,14 +71,8 @@ async function updateUserQuotaAndHandleExpiryForTodos(userId, setTaskCountQuotaH
     .eq('package_type', 'todos')
     .eq('is_active', true)
     .lt('expires_at', now);
+  if (expiryUpdateError) console.error("Error deactivating expired todos packages:", expiryUpdateError.message);
 
-  if (expiryUpdateError) {
-    console.error("Error deactivating expired todos packages:", expiryUpdateError.message);
-  } else {
-    console.log("Checked and deactivated any expired todos packages for user:", userId);
-  }
-
-  // 2. Hitung ulang total kuota saat ini
   const { data: activePackages, error: fetchActiveError } = await supabase
     .from('quota_packages')
     .select('items_added')
@@ -87,361 +84,349 @@ async function updateUserQuotaAndHandleExpiryForTodos(userId, setTaskCountQuotaH
   if (fetchActiveError) {
     console.error("Error fetching active todos packages:", fetchActiveError.message);
   } else if (activePackages) {
-    const totalPaidQuota = activePackages.reduce((sum, pkg) => sum + pkg.items_added, 0);
-    currentTotalTodosQuota = FREE_TODOS_QUOTA_BASE + totalPaidQuota;
+    currentTotalTodosQuota = FREE_TODOS_QUOTA_BASE + activePackages.reduce((sum, pkg) => sum + pkg.items_added, 0);
   }
 
-  // 3. (PENTING) Update kolom 'todos_current_total_quota' di tabel 'profiles'
-  // Ini memastikan halaman lain (seperti SettingsBillingPage) membaca nilai yang benar.
   const { error: updateProfileError } = await supabase
     .from('profiles')
-    .update({ todos_current_total_quota: currentTotalTodosQuota }) // PASTIKAN KOLOM INI ADA
+    .update({ todos_current_total_quota: currentTotalTodosQuota })
     .eq('id', userId);
+  if (updateProfileError) console.warn("Could not update todos_current_total_quota in profiles:", updateProfileError.message);
 
-  if (updateProfileError) {
-      console.warn("Could not update todos_current_total_quota in profiles from client:", updateProfileError.message);
-  }
-
-  // 4. Set state lokal
   setTaskCountQuotaHook(currentTotalTodosQuota);
   setIsLoadingQuotaHook(false);
   return currentTotalTodosQuota;
 }
 
-
 export default function TodoPage() {
-  const [state, formAction] = useActionState(addTask, initialState);
+  const [actionState, formAction, isPending] = useActionState(addTask, initialActionState);
   const [showForm, setShowForm] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isLoadingQuota, setIsLoadingQuota] = useState(true);
   const [taskCountQuota, setTaskCountQuota] = useState(FREE_TODOS_QUOTA_BASE);
   const [currentUser, setCurrentUser] = useState(null);
+  const isInitializingRef = useRef(false);
+  const currentUserIdRef = useRef(null);
 
   useEffect(() => {
-    const initializePage = async () => {
-      setIsLoadingTasks(true);
-      setIsLoadingQuota(true); // Pastikan ini juga di-set
-
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        console.error("Error fetching user or no user session:", userError?.message || "No user session");
-        setCurrentUser(null);
-        setTasks([]);
-        setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
-        setIsLoadingTasks(false);
-        setIsLoadingQuota(false);
+    const initializePage = async (sessionUser) => {
+      if (isInitializingRef.current) {
+        console.log("TodoPage: Initialization already in progress. Skipping.");
         return;
       }
-      
-      setCurrentUser(user);
+      isInitializingRef.current = true;
+      setIsLoadingTasks(true);  
+      setIsLoadingQuota(true);  
 
-      await updateUserQuotaAndHandleExpiryForTodos(user.id, setTaskCountQuota, setIsLoadingQuota);
-      // Tidak perlu oper currentQuota ke fetchTasks jika fetchTasks tidak langsung menggunakannya
-      // untuk membatasi query (karena kita slice di client)
-      const fetchedTasks = await fetchTasks(user.id);
-      setTasks(fetchedTasks); // setTasks dengan hasil fetch
-      setIsLoadingTasks(false);
+      try {
+        if (!sessionUser) {
+          console.log("TodoPage: No user session, setting defaults.");
+          setCurrentUser(null);
+          currentUserIdRef.current = null;
+          setTasks([]); 
+          setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
+          return;
+        }
+
+        if (sessionUser.id !== currentUserIdRef.current) {
+          setCurrentUser(sessionUser);
+          currentUserIdRef.current = sessionUser.id;
+        }
+        
+        await updateUserQuotaAndHandleExpiryForTodos(sessionUser.id, setTaskCountQuota, setIsLoadingQuota);
+        
+        const fetchedTasks = await fetchTasks(sessionUser.id); 
+        setTasks(fetchedTasks);
+        
+      } catch (error) {
+        console.error("TodoPage: Error during page initialization:", error.message);
+        setCurrentUser(null);
+        currentUserIdRef.current = null;
+        setTasks([]);
+        setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
+      } finally {
+        setIsLoadingTasks(false); 
+        isInitializingRef.current = false;
+      }
     };
 
-    initializePage();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) { // Cek session.user juga
-            // setCurrentUser(session.user); // Sudah dihandle initializePage
-            initializePage();
-        } else if (event === 'SIGNED_OUT') {
-            setCurrentUser(null);
-            setTasks([]);
-            setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
-            setIsLoadingTasks(false);
-            setIsLoadingQuota(false);
-        }
+    // Initial check for session on component mount
+    supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
+      if (sessionError) {
+        console.error("TodoPage: Error getting initial session:", sessionError.message);
+        await initializePage(null); // Initialize with no user
+      } else {
+        await initializePage(session?.user || null);
+      }
     });
 
+    // Listener for authentication state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("TodoPage Auth event:", event, "Current User ID:", currentUserIdRef.current, "Session User ID:", session?.user?.id);
+        
+        if (event === "SIGNED_IN") {
+          if (session?.user && session.user.id !== currentUserIdRef.current) {
+            console.log("TodoPage: User changed or newly signed in, re-initializing.");
+            await initializePage(session.user);
+          } else if (session?.user && currentUserIdRef.current === null) {
+            // This case handles when a user signs in, and previously, there was no user (app started logged out).
+            console.log("TodoPage: User signed in (was previously null), re-initializing.");
+            await initializePage(session.user);
+          } else if (session?.user && !isLoadingTasks && !isLoadingQuota) {
+            // This case handles if the event is for the already signed-in user and things are not loading.
+            // notes.js: else if (session?.user && !isLoading && !isLoadingQuota)
+            console.log("TodoPage: Auth event SIGNED_IN for same user, no re-initialization needed if not loading.");
+          }
+        } else if (event === "SIGNED_OUT") {
+          console.log("TodoPage: User signed out, resetting page.");
+          // Prevent initializePage from running if it's somehow triggered concurrently during sign out.
+          isInitializingRef.current = true; 
+          setCurrentUser(null);
+          currentUserIdRef.current = null;
+          setTasks([]);
+          setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
+          setIsLoadingTasks(false); 
+          setIsLoadingQuota(false);
+          isInitializingRef.current = false;
+        } else if (event === "TOKEN_REFRESHED" && session?.user) {
+          console.log("TodoPage: Token refreshed for user:", session.user.id, "Checking quota.");
+          if (session.user.id === currentUserIdRef.current) {
+            const previousIsLoadingQuota = isLoadingQuota; 
+            await updateUserQuotaAndHandleExpiryForTodos(session.user.id, setTaskCountQuota, setIsLoadingQuota);
+            setIsLoadingQuota(previousIsLoadingQuota); 
+          }
+        }
+      }
+    );
+
     return () => {
-        authListener?.subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 
   async function updateTaskStatus(taskId, newStatus = 'completed') {
-    const taskToUpdate = tasks.find(t => t.id === taskId);
-    if (!taskToUpdate) return;
-
     const originalTasks = [...tasks];
-    setTasks(prevTasks => 
-        prevTasks.map(task => 
-            task.id === taskId ? { ...task, status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : task.completed_at } : task
-        )
-    );
-
+    setTasks(prevTasks => prevTasks.map(task => 
+        task.id === taskId ? { ...task, status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : task.completed_at } : task
+    ));
     const { error } = await supabase
       .from('task')
       .update({ status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null })
       .eq('id', taskId);
-
     if (error) {
       console.error("Error updating task status in DB:", error.message);
       setTasks(originalTasks);
       alert("Failed to update task status. Please try again.");
       return;
     }
-
-    if (currentUser && newStatus === 'completed') {
-      const { data: logData, error: fetchLogError } = await supabase
-        .from('task_completion_log')
-        .select('completed_task_count')
-        .eq('user_id', currentUser.id)
-        .single();
-
-      if (fetchLogError && fetchLogError.code !== 'PGRST116') {
-        console.error("Error fetching task_completion_log:", fetchLogError.message);
-      } else {
-        const currentCount = logData?.completed_task_count || 0;
-        const { error: logError } = await supabase
-          .from('task_completion_log')
-          .update({ completed_task_count: currentCount + 1, updated_at: new Date().toISOString() })
-          .eq('user_id', currentUser.id);
-        if (logError) console.error("Error updating task_completion_log:", logError.message);
-      }
-    }
     console.log(`Task ${taskId} status updated to ${newStatus}`);
   }
 
   useEffect(() => {
-    if (state.success && state.task) {
-      // Tambahkan task baru dan urutkan kembali (terbaru di atas)
-      setTasks(prevTasks => [state.task, ...prevTasks].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)));
-      setShowForm(false);
-    }
-    if (!state.success && state.message) {
-      alert(`Error adding task: ${state.message}`);
-    }
-  }, [state.success, state.task, state.message]);
-
-
-  // --- AWAS: Logika Penghapusan Task Selesai Otomatis ---
-  // useEffect ini berasal dari kode asli Anda.
-  // Ini akan MENGHAPUS task yang statusnya 'completed' dan berumur lebih dari 1 hari.
-  // Jika Anda tidak ingin task selesai hilang sepenuhnya, Anda bisa MENGHAPUS atau MENGOMENTARI useEffect di bawah ini.
-  useEffect(() => {
-    const deleteOldCompletedTasks = async () => {
-      if (!currentUser) return;
-      const cutoff = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(); // 1 day: 1 * 24 * 60 * 60 * 1000
-      const { error, count } = await supabase // Dapatkan count untuk logging
-        .from('task')
-        .delete({ count: 'exact' }) // Minta Supabase mengembalikan jumlah baris yang dihapus
-        .eq('status', 'completed')
-        .eq('user_id', currentUser.id)
-        .lt('completed_at', cutoff);
-      
-      if (error) {
-        console.error('Error auto-deleting completed tasks:', error.message);
-      } else {
-        if (count && count > 0) {
-            console.log(`Auto-deleted ${count} old completed task(s).`);
-            // Muat ulang tasks HANYA jika ada yang benar-benar terhapus
-            const updatedTasks = await fetchTasks(currentUser.id); 
-            setTasks(updatedTasks);
+    if (actionState.success && actionState.task) {
+      setTasks(prevTasks => {
+        const existingTaskIndex = prevTasks.findIndex(t => t.id === actionState.task.id);
+        let newTasks;
+        if (existingTaskIndex > -1) { 
+          newTasks = [...prevTasks];
+          newTasks[existingTaskIndex] = actionState.task;
         } else {
-            console.log('Checked for old completed tasks to delete. None found or deleted.');
+          newTasks = [actionState.task, ...prevTasks];
         }
-      }
-    };
-    
-    if (currentUser) {
-        const intervalId = setInterval(deleteOldCompletedTasks, 60 * 60 * 1000); // Setiap jam
-        deleteOldCompletedTasks(); // Jalankan sekali saat mount (setelah currentUser ada)
-        return () => clearInterval(intervalId); 
+        return newTasks.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      });
+      setShowForm(false);
+    } else if (!actionState.success && actionState.message && !isPending) { 
+      alert(`Error: ${actionState.message}`);
+      console.error("Form action error:", actionState.message, actionState.errors);
     }
-  }, [currentUser]); // Jalankan jika currentUser berubah
-
+  }, [actionState, isPending]);
 
   const todoTasksRaw = tasks.filter(task => task.status === 'todo');
-  // tasks sudah diurutkan dari terbaru oleh fetchTasks dan saat penambahan baru
-
-  // `taskCountQuota` adalah jumlah total task yang diizinkan (gratis + berbayar aktif)
-  // `visibleTodoTasks` adalah N task terbaru yang sesuai kuota
   const visibleTodoTasks = todoTasksRaw.slice(0, taskCountQuota);
-  // `blurredTodoTasks` adalah task terbaru berikutnya yang melebihi kuota
   const blurredTodoTasks = todoTasksRaw.slice(taskCountQuota);
-  
   const actualActiveTodoTaskCount = todoTasksRaw.length;
-  // Kondisi untuk tombol "Add New Task": bisa tambah jika jumlah task aktif < kuota yang diizinkan
   const canAddNewTask = actualActiveTodoTaskCount < taskCountQuota;
+
+  const completedTasks = tasks.filter(task => task.status === 'completed').sort((a, b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0));
 
   return (
     <PageLayout title="TODO">
-      <div className="flex flex-col p-4 md:p-6">
-        <div className="flex flex-col gap-6">
-          {/* Kolom To Do */}
+      {/* Modal Form */}
+      {showForm && (
+        <TaskForm 
+          formAction={formAction} 
+          state={{ ...actionState, pending: isPending }} 
+          setShowForm={setShowForm}
+        />
+      )}
+
+      {/* Main Page Content - apply blur if form is shown */}
+      <div className={`flex flex-col p-4 md:p-6 transition-filter duration-300 ${showForm ? 'filter blur-sm' : ''}`}>
+        <div className="flex flex-col gap-8"> {/* Increased gap */}
+          
+          {/* To Do Section */}
           <div className="flex flex-col">
             <div className="flex items-center justify-between mb-4 border-b-2 border-gray-200 pb-3">
               <h2 className="text-xl font-semibold text-gray-700">To Do</h2>
               {!isLoadingQuota && (
-                <h2 className="text-sm font-medium text-gray-500">
+                <h2 className="text-sm font-medium text-gray-500 tabular-nums">
                   Quota: {actualActiveTodoTaskCount}/{taskCountQuota}
                 </h2>
               )}
             </div>
             
-            {showForm && (
-              <TaskForm 
-                formAction={formAction} 
-                state={state} 
-                setShowForm={setShowForm} 
-              />
-            )}
-
             <CardContent className="p-0">
               {isLoadingTasks || isLoadingQuota ? (
-                <div className="flex justify-center items-center h-40">
-                  <p className="text-[#6772FE]">Loading tasks and quota...</p>
+                <div className="flex justify-center items-center h-48"> {/* Increased height */}
+                  <p className="text-indigo-600 animate-pulse text-lg">Loading tasks & quota...</p>
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 mb-4">
-                    {/* Render VISIBLE 'todo' tasks */}
+                  {visibleTodoTasks.length === 0 && blurredTodoTasks.length === 0 && (
+                     !canAddNewTask && !isLoadingQuota && actualActiveTodoTaskCount >= taskCountQuota ? null : // If quota is full, don't show "no task" yet, show quota message below
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <AlertTriangle size={48} className="text-gray-300 mb-3" />
+                      <p className="text-xl text-gray-500 font-semibold">No tasks on your To-Do list yet!</p>
+                      <p className="text-sm text-gray-400 mt-1">Click "Add New Task" to get started.</p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-5 mb-5"> {/* Increased gap & margin */}
                     {visibleTodoTasks.map((task) => (
                       <div 
                         key={task.id} 
-                        className="p-4 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col justify-between min-h-[180px]"
+                        className="p-5 border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 bg-white flex flex-col justify-between min-h-[220px]" // Enhanced styling
                       >
                         <div>
-                          <h3 className="font-semibold text-md text-gray-800 break-words">{task.name}</h3>
+                          <h3 className="font-semibold text-lg text-gray-800 break-words mb-1.5">{task.name}</h3>
                           {task.description ? (
-                            <p className="text-gray-600 text-sm mt-1 text-justify break-words max-h-20 overflow-y-auto">
+                            <p className="text-gray-600 text-sm text-justify break-words max-h-24 overflow-y-auto custom-scrollbar leading-relaxed">
                               {task.description}
                             </p>
                           ) : (
-                            <p className="text-gray-400 text-sm mt-1 italic">No description</p>
+                            <p className="text-gray-400 text-sm mt-1.5 italic">No description provided.</p>
                           )}
                         </div>
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <div className="flex flex-wrap gap-x-3 gap-y-1.5 mb-3 text-xs">
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <div className="flex flex-wrap gap-x-3 gap-y-2 mb-4 text-xs"> {/* Increased gap & margin */}
                             {task.deadline && (
-                              <div className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                                <Calendar size={12} />
+                              <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full font-medium">
+                                <Calendar size={14} />
                                 <span>{formatDate(task.deadline)}</span>
                               </div>
                             )}
                             {task.hour && (
-                              <div className="flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-0.5 rounded">
-                                <Clock size={12} />
+                              <div className="flex items-center gap-1.5 text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full font-medium">
+                                <Clock size={14} />
                                 <span>{task.hour.slice(0,5)}</span>
                               </div>
                             )}
                             {task.tag && (
-                              <div className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded">
-                                <Tag size={12} />
+                              <div className="flex items-center gap-1.5 text-green-600 bg-green-50 px-2.5 py-1 rounded-full font-medium">
+                                <Tag size={14} />
                                 <span>{task.tag}</span>
                               </div>
                             )}
                           </div>
                           <Button
-                            variant="outline"
+                            variant="default" // Changed to default for primary action on card
                             size="sm"
-                            className="w-full mt-auto bg-[#6772FE] hover:bg-[#5051F9] text-white hover:text-white font-medium py-2 transition-colors hover:cursor-pointer"
+                            className="w-full mt-auto bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 transition-colors flex items-center justify-center gap-2 rounded-lg hover:cursor-pointer"
                             onClick={() => updateTaskStatus(task.id, 'completed')}
                           >
-                            Mark as Completed
+                            <CheckCircle size={16} /> Mark as Completed
                           </Button>
                         </div>
                       </div>
                     ))}
 
-                    {/* Render BLURRED 'todo' tasks */}
                     {blurredTodoTasks.map((task) => (
                       <div 
                         key={task.id} 
-                        className="p-4 border border-dashed border-gray-300 rounded-lg bg-gray-50 opacity-60 flex flex-col justify-between min-h-[180px] relative"
+                        className="p-5 border border-dashed border-gray-300 rounded-xl bg-gray-50 opacity-60 flex flex-col justify-between min-h-[220px] relative group"
                       >
-                        {/* ... (konten task blurred tetap sama) ... */}
-                        <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-800 text-xs px-2 py-0.5 rounded-sm font-semibold shadow-sm z-10">
-                          Over Quota
+                        <div className="absolute top-3 right-3 bg-amber-400 text-amber-800 text-xs px-2.5 py-1 rounded-full font-semibold shadow-sm z-10 flex items-center gap-1">
+                          <AlertTriangle size={12}/> Over Quota
                         </div>
                         <div>
-                          <h3 className="font-semibold text-md text-gray-700 break-words">{task.name}</h3>
+                          <h3 className="font-semibold text-md text-gray-700 break-words mb-1.5">{task.name}</h3>
                           {task.description ? (
-                            <p className="text-gray-500 text-sm mt-1 text-justify break-words max-h-20 overflow-y-auto">
+                            <p className="text-gray-500 text-sm text-justify break-words max-h-20 overflow-y-auto custom-scrollbar">
                               {task.description}
                             </p>
                           ) : (
-                            <p className="text-gray-400 text-sm mt-1 italic">Tidak ada deskripsi</p>
+                            <p className="text-gray-400 text-sm mt-1.5 italic">No description provided.</p>
                           )}
                         </div>
-                        <div className="mt-3 pt-3 border-t border-gray-200">
-                          <div className="flex flex-wrap gap-x-3 gap-y-1.5 mb-3 text-xs">
-                            {task.deadline && (
-                              <div className="flex items-center gap-1 text-gray-500">
-                                <Calendar size={12} />
-                                <span>{formatDate(task.deadline)}</span>
-                              </div>
-                            )}
-                            {task.hour && (
-                              <div className="flex items-center gap-1 text-gray-500">
-                                <Clock size={12} />
-                                <span>{task.hour.slice(0,5)}</span>
-                              </div>
-                            )}
-                            {task.tag && (
-                              <div className="flex items-center gap-1 text-gray-400 bg-gray-200 px-2 py-0.5 rounded">
-                                <Tag size={12} />
-                                <span>{task.tag}</span>
-                              </div>
-                            )}
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="flex flex-wrap gap-x-3 gap-y-2 mb-4 text-xs">
+                             {/* ... (deadline, hour, tag display as in visible tasks but perhaps slightly muted) ... */}
                           </div>
-                          <Button
+                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full mt-auto bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium py-2 transition-colors hover:cursor-not-allowed"
+                            className="w-full mt-auto bg-gray-300 text-gray-600 font-medium py-2.5 cursor-not-allowed flex items-center justify-center gap-2 rounded-lg"
                             disabled
                           >
-                            Complete (Over Quota)
+                            <XCircle size={16}/> Mark Completed
                           </Button>
+                        </div>
+                         <div className="absolute inset-0 bg-slate-700 bg-opacity-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl">
+                            <Link 
+                                href='/settings/billing' 
+                                className="px-5 py-2.5 bg-red-500 text-white font-semibold text-sm rounded-lg shadow-md hover:bg-red-600 transition-colors"
+                            >
+                                Upgrade to Use Task
+                            </Link>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Pesan "Over Quota" dan tombol upgrade */}
                   {actualActiveTodoTaskCount > taskCountQuota && !isLoadingQuota && (
-                    <div className="flex flex-col items-center justify-center py-6 text-center mt-4 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-md font-semibold text-red-600 mb-2">
-                        Anda telah menggunakan {actualActiveTodoTaskCount} dari {taskCountQuota} kuota tugas Anda!
+                    <div className="flex flex-col items-center justify-center py-6 px-4 text-center mt-4 bg-red-50 border-2 border-dashed border-red-200 rounded-xl">
+                      <AlertTriangle size={32} className="text-red-500 mb-2.5" />
+                      <p className="text-lg font-semibold text-red-600 mb-1.5">
+                        You've used {actualActiveTodoTaskCount} of {taskCountQuota} task quota!
                       </p>
-                      <p className="text-sm text-red-500 mb-4">
-                        Beberapa tugas mungkin tidak ditampilkan atau di-blur karena melebihi kuota.
+                      <p className="text-sm text-red-500 mb-4 max-w-md">
+                        Some tasks are currently hidden or blurred because you've exceeded your active task limit. Please upgrade your plan or complete existing tasks.
                       </p>
                       <Link 
                         href='/settings/billing' 
-                        className="inline-block px-5 py-2 bg-red-500 text-white font-medium text-sm rounded-md shadow-md hover:bg-red-600 transition-colors"
+                        className="inline-block px-6 py-2.5 bg-red-500 text-white font-medium text-sm rounded-lg shadow-md hover:bg-red-600 transition-colors"
                       >
-                        Tambah Kuota Sekarang
+                        Increase Quota Now
                       </Link>
                     </div>
                   )}
                   
-                  {/* Tombol Add Task */}
-                  {!showForm && (
-                    <div className={`flex flex-col items-center justify-center py-6 text-center`}>
-                        { (actualActiveTodoTaskCount === 0 && !isLoadingTasks && !isLoadingQuota) && (
-                            <>
-                                <p className="text-[#6772FE] font-semibold">There is no task</p>
-                                <p className="text-xs text-gray-400 mt-1 mb-3">Add task to start.</p>
-                            </>
-                        )}
-                        {/* Tombol tambah task hanya muncul jika jumlah task aktif < kuota */}
+                  {!showForm && ( // Only show Add Task button if form is not visible
+                    <div className={`flex flex-col items-center justify-center py-8 text-center`}>
                         { canAddNewTask && !isLoadingQuota && (
                           <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="text-sm flex items-center gap-1.5 hover:cursor-pointer bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700 px-4 py-2"
-                              onClick={() => setShowForm(true)}
+                              variant="default"
+                              size="lg"
+                              className="text-base flex items-center gap-2.5 hover:cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                              onClick={() => {
+                                // setEditingTask(null); // Ensure not in edit mode when adding new
+                                setShowForm(true);
+                              }}
                           >
-                              <CirclePlus size={16} />
+                              <CirclePlus size={22} />
                               <span>Add New Task</span>
                           </Button>
+                        )}
+                        {/* Message if cannot add new task due to quota and quota is full */}
+                        { !canAddNewTask && !isLoadingQuota && actualActiveTodoTaskCount >= taskCountQuota && visibleTodoTasks.length > 0 && ( // only show if there are some visible tasks but quota is full
+                            <div className="text-center mt-6 p-5 bg-amber-50 border border-amber-200 rounded-xl">
+                                <AlertTriangle size={28} className="text-amber-500 mb-2 mx-auto" />
+                                <p className="font-semibold text-amber-700">You've reached your task quota ({taskCountQuota}/{taskCountQuota}).</p>
+                                <p className="text-sm text-amber-600 mt-1">Complete existing tasks or <Link href='/settings/billing' className="underline hover:text-amber-700 font-medium">upgrade your plan</Link> to add more.</p>
+                            </div>
                         )}
                     </div>
                   )}
@@ -450,38 +435,41 @@ export default function TodoPage() {
             </CardContent>
           </div>
 
-          {/* Kolom Completed - UI TIDAK DIUBAH dari struktur asli Anda */}
-          <div className="flex flex-col mt-8">
+          {/* Completed Section */}
+          <div className="flex flex-col mt-6">
             <div className="flex items-center justify-between mb-4 border-b-2 border-gray-200 pb-3">
-              <h2 className="text-xl font-semibold text-gray-700">Completed</h2>
+              <h2 className="text-xl font-semibold text-gray-700">Completed <span className='opacity-50'>(Deleted in 1 day)</span></h2>
+              {!isLoadingTasks && <span className="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">{completedTasks.length} task(s)</span>}
             </div>
             <CardContent className="p-0">
-              {isLoadingTasks ? ( // Bisa juga isLoadingTasks || isLoadingQuota
+              {isLoadingTasks ? (
                 <div className="flex justify-center items-center h-40">
-                  <p className="text-[#6772FE]">Loading completed tasks...</p>
+                  <p className="text-indigo-600 animate-pulse">Loading completed tasks...</p>
                 </div>
-              ) : tasks.filter(task => task.status === 'completed').length === 0 ? (
-                <div className="flex justify-center items-center py-10 text-gray-400">
-                  <p className="font-medium">There is no completed task.</p>
+              ) : completedTasks.length === 0 ? (
+                <div className="flex flex-col justify-center items-center py-12 text-center text-gray-400">
+                    <BadgeCheck size={52} className="text-gray-300 mb-3.5" />
+                    <p className="font-medium text-lg text-gray-500">No completed tasks yet.</p>
+                    <p className="text-sm">Tasks you mark as done will appear here.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
-                  {tasks.filter(task => task.status === 'completed').map((task) => (
-                    <div key={task.id} className="p-4 border border-green-200 bg-green-50 rounded-lg shadow-sm opacity-80">
-                      <h3 className="font-medium text-gray-700 line-through">{task.name}</h3>
-                      {task.description && <p className="text-xs text-gray-500 mt-1 line-through">{task.description}</p>}
-                      <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-2 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-5">
+                  {completedTasks.map((task) => (
+                    <div key={task.id} className="p-4 border border-green-300 bg-green-50 rounded-xl shadow-sm opacity-90 hover:opacity-100 hover:shadow-md transition-all duration-200">
+                      <h3 className="font-medium text-gray-700 line-through break-words">{task.name}</h3>
+                      {task.description && <p className="text-xs text-gray-500 mt-1.5 line-through break-words max-h-16 overflow-y-auto custom-scrollbar">{task.description}</p>}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3 pt-3 border-t border-green-200 text-xs">
                         {task.tag && (
-                          <div className="flex items-center gap-1 text-gray-500">
+                          <div className="flex items-center gap-1 text-gray-500 bg-gray-200/70 px-2 py-0.5 rounded-full">
                             <Tag size={12} />
                             <span>{task.tag}</span>
                           </div>
                         )}
-                         {task.completed_at && (
-                            <div className="flex items-center gap-1 text-gray-500">
-                                <Calendar size={12} />
-                                <span>Completed: {formatDate(task.completed_at)}</span>
-                            </div>
+                        {task.completed_at && (
+                          <div className="flex items-center gap-1 text-green-700 font-medium">
+                            <Calendar size={12} />
+                            <span>Done: {formatDate(task.completed_at)}</span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -489,8 +477,7 @@ export default function TodoPage() {
                 </div>
               )}
             </CardContent>
-          </div> {/* Akhir Kolom Completed */}
-
+          </div>
         </div>
       </div>
     </PageLayout>

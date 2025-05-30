@@ -251,13 +251,13 @@ export default function SettingsBillingPage() {
         />
       </div>
 
-      {showForm &&  ( 
+      {/* {showForm &&  ( 
         <BillForm 
         //   formAction={formAction} 
         //   state={state} 
           setShowForm={setShowForm} 
         />
-      )}
+      )} */}
 
       <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60] flex justify-between items-end">
           <div className="flex items-end space-x-7">

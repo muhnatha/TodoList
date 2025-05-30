@@ -219,7 +219,6 @@ export default function SettingsDetailsPage() {
         <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60] flex justify-between items-end">
             <div className="flex items-end space-x-7">
                 <div className="relative w-24 h-24 flex items-center justify-center">
-                    {/* Same with avatar icon in header */}
                     <Avatar className={"w-16 h-16"}>
                         <AvatarImage src={avatarSrc} />
                         <AvatarFallback>{avatarFallback}</AvatarFallback>

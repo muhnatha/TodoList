@@ -163,18 +163,13 @@ export default function NotesPage() {
       async (event, session) => {
         console.log("Auth event:", event, "Current User ID:", currentUserIdRef.current, "Session User ID:", session?.user?.id);
         if (event === "SIGNED_IN") {
-          // Only re-initialize if user ID actually changed or was previously null
           if (session?.user && session.user.id !== currentUserIdRef.current) {
             console.log("User changed or newly signed in, re-initializing.");
             await initializePage(session.user);
           } else if (session?.user && currentUserIdRef.current === null) {
-            // This handles the case where initial session was null, then user signs in
             console.log("User signed in (was previously null), re-initializing.");
             await initializePage(session.user);
           } else if (session?.user && !isLoading && !isLoadingQuota) {
-            // If user is the same, but we are not loading, perhaps a token refresh.
-            // We might want to gently re-validate quota without full page loading visuals
-            // For now, if user is same and no loading, do nothing to prevent flicker
             console.log("Auth event SIGNED_IN for same user, no re-initialization needed if not loading.");
           }
         } else if (event === "SIGNED_OUT") {
@@ -189,16 +184,11 @@ export default function NotesPage() {
           setIsLoadingQuota(false);
           isInitializingRef.current = false;
         } else if (event === "TOKEN_REFRESHED" && session?.user) {
-            // If token is refreshed, user is still the same.
-            // We might want to silently update quota in background if needed,
-            // but avoid full page reload if user context hasn't changed.
             console.log("Token refreshed for user:", session.user.id, "Checking quota.");
             if (session.user.id === currentUserIdRef.current) {
-                 // Silently update quota without triggering main page loading indicators
-                const previousIsLoadingQuota = isLoadingQuota; // Store previous state
-                // setIsLoadingQuota(true); // Momentarily show quota loading if desired
+                const previousIsLoadingQuota = isLoadingQuota; 
                 await updateUserQuotaAndHandleExpiryForNotes(session.user.id, setNotesCountQuota, setIsLoadingQuota);
-                // setIsLoadingQuota(previousIsLoadingQuota); // Restore or let the function handle it
+                setIsLoadingQuota(previousIsLoadingQuota); 
             }
         }
       }
@@ -207,7 +197,7 @@ export default function NotesPage() {
     return () => {
       subscription?.unsubscribe();
     };
-  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
+  }, []); 
 
   const handleCreate = () => {
     if (notes.length >= notesCountQuota && notesCountQuota > 0) {
@@ -533,7 +523,7 @@ export default function NotesPage() {
         )}
 
         {showPageLoadingIndicator && (
-            <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+            <div className="text-center py-10 text-indigo-600 animate-pulse">
               Loading notes...
             </div>
         )}
