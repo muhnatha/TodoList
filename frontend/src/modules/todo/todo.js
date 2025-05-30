@@ -421,7 +421,7 @@ export default function TodoPage() {
                           </Button>
                         )}
                         {/* Message if cannot add new task due to quota and quota is full */}
-                        { !canAddNewTask && !isLoadingQuota && actualActiveTodoTaskCount >= taskCountQuota && visibleTodoTasks.length > 0 && ( // only show if there are some visible tasks but quota is full
+                        { !canAddNewTask && !isLoadingQuota && actualActiveTodoTaskCount === taskCountQuota && visibleTodoTasks.length > 0 && ( // only show if there are some visible tasks but quota is full
                             <div className="text-center mt-6 p-5 bg-amber-50 border border-amber-200 rounded-xl">
                                 <AlertTriangle size={28} className="text-amber-500 mb-2 mx-auto" />
                                 <p className="font-semibold text-amber-700">You've reached your task quota ({taskCountQuota}/{taskCountQuota}).</p>
