@@ -11,7 +11,7 @@ const protectedRoutes = [
   '/settings/log',
 ];
 
-const authRoutes = ['/login', '/signup', '/forgot-password'];
+const authRoutes = ['/login', '/signup', '/forgot-password', '/update-password'];
 
 export const middleware = async (request) => {
   // Create a response object that can be modified by Supabase

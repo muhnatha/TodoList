@@ -1,11 +1,12 @@
+// todo.js
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
 import PageLayout from "@/components/PageLayout"
 import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
-import { addTask } from '@/app/action' 
-import { useActionState } from 'react' 
-import { CirclePlus, Calendar, Tag, Clock, Edit3, Trash2, CheckCircle, XCircle, AlertTriangle, BadgeCheck } from "lucide-react" 
+import { addTask } from '@/app/action'
+import { useActionState } from 'react'
+import { CirclePlus, Calendar, Tag, Clock, Edit3, Trash2, CheckCircle, XCircle, AlertTriangle, BadgeCheck } from "lucide-react"
 import TaskForm from '@/components/TaskForm'
 import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
@@ -18,6 +19,14 @@ const initialActionState = {
   task: null
 };
 
+// Helper to format date to YYYY-MM-DD string
+const toYYYYMMDD = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const formatDate = (dateString) => {
   if (!dateString) return '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
@@ -26,7 +35,7 @@ const formatDate = (dateString) => {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
-      timeZone: 'UTC', 
+      timeZone: 'UTC',
     });
   }
   return new Date(dateString).toLocaleDateString(undefined, {
@@ -55,6 +64,7 @@ async function fetchTasks(userId) {
 }
 
 async function updateUserQuotaAndHandleExpiryForTodos(userId, setTaskCountQuotaHook, setIsLoadingQuotaHook) {
+  // ... (implementation remains the same as in your provided code)
   if (!userId) {
     setIsLoadingQuotaHook(false);
     setTaskCountQuotaHook(FREE_TODOS_QUOTA_BASE);
@@ -110,21 +120,22 @@ export default function TodoPage() {
   const currentUserIdRef = useRef(null);
 
   useEffect(() => {
+    // ... (implementation remains the same as in your provided code)
     const initializePage = async (sessionUser) => {
       if (isInitializingRef.current) {
         console.log("TodoPage: Initialization already in progress. Skipping.");
         return;
       }
       isInitializingRef.current = true;
-      setIsLoadingTasks(true);  
-      setIsLoadingQuota(true);  
+      setIsLoadingTasks(true);
+      setIsLoadingQuota(true);
 
       try {
         if (!sessionUser) {
           console.log("TodoPage: No user session, setting defaults.");
           setCurrentUser(null);
           currentUserIdRef.current = null;
-          setTasks([]); 
+          setTasks([]);
           setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
           return;
         }
@@ -133,12 +144,12 @@ export default function TodoPage() {
           setCurrentUser(sessionUser);
           currentUserIdRef.current = sessionUser.id;
         }
-        
+
         await updateUserQuotaAndHandleExpiryForTodos(sessionUser.id, setTaskCountQuota, setIsLoadingQuota);
-        
-        const fetchedTasks = await fetchTasks(sessionUser.id); 
+
+        const fetchedTasks = await fetchTasks(sessionUser.id);
         setTasks(fetchedTasks);
-        
+
       } catch (error) {
         console.error("TodoPage: Error during page initialization:", error.message);
         setCurrentUser(null);
@@ -146,56 +157,49 @@ export default function TodoPage() {
         setTasks([]);
         setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
       } finally {
-        setIsLoadingTasks(false); 
+        setIsLoadingTasks(false);
         isInitializingRef.current = false;
       }
     };
 
-    // Initial check for session on component mount
     supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
       if (sessionError) {
         console.error("TodoPage: Error getting initial session:", sessionError.message);
-        await initializePage(null); // Initialize with no user
+        await initializePage(null);
       } else {
         await initializePage(session?.user || null);
       }
     });
 
-    // Listener for authentication state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log("TodoPage Auth event:", event, "Current User ID:", currentUserIdRef.current, "Session User ID:", session?.user?.id);
-        
+
         if (event === "SIGNED_IN") {
           if (session?.user && session.user.id !== currentUserIdRef.current) {
             console.log("TodoPage: User changed or newly signed in, re-initializing.");
             await initializePage(session.user);
           } else if (session?.user && currentUserIdRef.current === null) {
-            // This case handles when a user signs in, and previously, there was no user (app started logged out).
             console.log("TodoPage: User signed in (was previously null), re-initializing.");
             await initializePage(session.user);
           } else if (session?.user && !isLoadingTasks && !isLoadingQuota) {
-            // This case handles if the event is for the already signed-in user and things are not loading.
-            // notes.js: else if (session?.user && !isLoading && !isLoadingQuota)
             console.log("TodoPage: Auth event SIGNED_IN for same user, no re-initialization needed if not loading.");
           }
         } else if (event === "SIGNED_OUT") {
           console.log("TodoPage: User signed out, resetting page.");
-          // Prevent initializePage from running if it's somehow triggered concurrently during sign out.
-          isInitializingRef.current = true; 
+          isInitializingRef.current = true;
           setCurrentUser(null);
           currentUserIdRef.current = null;
           setTasks([]);
           setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
-          setIsLoadingTasks(false); 
+          setIsLoadingTasks(false);
           setIsLoadingQuota(false);
           isInitializingRef.current = false;
         } else if (event === "TOKEN_REFRESHED" && session?.user) {
           console.log("TodoPage: Token refreshed for user:", session.user.id, "Checking quota.");
           if (session.user.id === currentUserIdRef.current) {
-            const previousIsLoadingQuota = isLoadingQuota; 
+            // const previousIsLoadingQuota = isLoadingQuota; // Removed as per your code
             await updateUserQuotaAndHandleExpiryForTodos(session.user.id, setTaskCountQuota, setIsLoadingQuota);
-            setIsLoadingQuota(previousIsLoadingQuota); 
           }
         }
       }
@@ -206,15 +210,17 @@ export default function TodoPage() {
     };
   }, []);
 
+
   async function updateTaskStatus(taskId, newStatus = 'completed') {
     const originalTasks = [...tasks];
-    setTasks(prevTasks => prevTasks.map(task => 
-        task.id === taskId ? { ...task, status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : task.completed_at } : task
+    setTasks(prevTasks => prevTasks.map(task =>
+      task.id === taskId ? { ...task, status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : task.completed_at } : task
     ));
     const { error } = await supabase
       .from('task')
       .update({ status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null })
       .eq('id', taskId);
+
     if (error) {
       console.error("Error updating task status in DB:", error.message);
       setTasks(originalTasks);
@@ -222,14 +228,123 @@ export default function TodoPage() {
       return;
     }
     console.log(`Task ${taskId} status updated to ${newStatus}`);
-  }
+
+    if (newStatus === 'completed') {
+      const userId = currentUserIdRef.current;
+
+      if (userId) {
+        // --- START: Logic to update task_completion_log (from your existing code) ---
+        try {
+          // Note: 'profileData' here refers to data from 'task_completion_log'
+          const { data: taskLogData, error: fetchLogEntryError } = await supabase
+            .from('task_completion_log')
+            .select('completed_task_count') // Assuming this table has one entry per user for a total count
+            .eq('user_id', userId)
+            .single();
+
+          if (fetchLogEntryError && fetchLogEntryError.code !== 'PGRST116') { // PGRST116 means no row found
+            console.error('Error fetching task_completion_log entry:', fetchLogEntryError.message);
+          } else {
+            const currentTotalCount = taskLogData?.completed_task_count || 0;
+            const newTotalCount = currentTotalCount + 1;
+
+            // Upsert logic for task_completion_log:
+            // This assumes 'user_id' is a unique key or PK in task_completion_log for this to work as an upsert.
+            // If not, you might update a specific row or always insert.
+            // The existing code attempts an update; if it fails (e.g. no row), it might silently not update.
+            // A true upsert or explicit insert/update logic based on existence is more robust.
+            // For now, matching existing logic:
+            const { error: updateTotalCountError } = await supabase
+              .from('task_completion_log')
+              .update({ completed_task_count: newTotalCount, updated_at: new Date().toISOString() }) // Also update 'updated_at'
+              .eq('user_id', userId); // This updates if a row with user_id exists
+
+            if (updateTotalCountError) {
+              console.error('Error updating completed_task_count in task_completion_log:', updateTotalCountError.message);
+              // If the update failed because the row doesn't exist, you might want to insert it:
+              if (fetchLogEntryError && fetchLogEntryError.code === 'PGRST116') { // Was an insert scenario
+                  const { error: insertLogError } = await supabase
+                    .from('task_completion_log')
+                    .insert({ user_id: userId, completed_task_count: 1, updated_at: new Date().toISOString() }); // Start count at 1
+                  if (insertLogError) {
+                      console.error('Error inserting new entry into task_completion_log:', insertLogError.message);
+                  } else {
+                      console.log(`Inserted new entry in task_completion_log for user ${userId}`);
+                  }
+              }
+            } else {
+              // Check if any row was actually updated
+              // const { count } = await supabase.from('task_completion_log').select('*', { count: 'exact', head: true }).eq('user_id', userId); (Optional check)
+              console.log(`Updated completed_task_count in task_completion_log for user ${userId} to ${newTotalCount}`);
+            }
+          }
+        } catch (e) {
+          console.error('Exception during task_completion_log update logic:', e.message);
+        }
+        // --- END: Logic to update task_completion_log ---
+
+
+        // --- START: Auto insert/update for daily_task_completion_summary ---
+        try {
+          const todayDateString = toYYYYMMDD(new Date());
+
+          const { data: existingSummary, error: fetchDailyError } = await supabase
+            .from('daily_task_completion_summary')
+            .select('id, tasks_completed_today') // Select 'id' for updating specific row
+            .eq('user_id', userId)
+            .eq('completion_date', todayDateString)
+            .single(); // Expect one or zero rows
+
+          if (fetchDailyError && fetchDailyError.code !== 'PGRST116') { // PGRST116 means 0 rows, which is fine
+            console.error('Error fetching daily task summary:', fetchDailyError.message);
+          } else if (existingSummary) {
+            // Entry for today exists, update it
+            const newDailyCount = (existingSummary.tasks_completed_today || 0) + 1;
+            const { error: updateDailyError } = await supabase
+              .from('daily_task_completion_summary')
+              .update({ tasks_completed_today: newDailyCount, updated_at: new Date().toISOString() })
+              .eq('id', existingSummary.id); // Update by specific row ID
+
+            if (updateDailyError) {
+              console.error('Error updating daily task summary:', updateDailyError.message);
+            } else {
+              console.log(`Daily task summary updated for ${userId} on ${todayDateString}. Tasks today: ${newDailyCount}`);
+            }
+          } else {
+            // No entry for today, insert a new one
+            const { error: insertDailyError } = await supabase
+              .from('daily_task_completion_summary')
+              .insert({
+                user_id: userId,
+                completion_date: todayDateString,
+                tasks_completed_today: 1
+                // created_at and updated_at should use database defaults if configured
+              });
+
+            if (insertDailyError) {
+              console.error('Error inserting new daily task summary:', insertDailyError.message);
+            } else {
+              console.log(`New daily task summary inserted for ${userId} on ${todayDateString}. Tasks today: 1`);
+            }
+          }
+        } catch (e) {
+          console.error('Exception during daily_task_completion_summary update logic:', e.message);
+        }
+        // --- END: Auto insert/update for daily_task_completion_summary ---
+
+      } else { // End if(userId)
+        console.warn("User ID not available. Cannot update completion logs.");
+      }
+    } // End if (newStatus === 'completed')
+  } // End updateTaskStatus
 
   useEffect(() => {
+    // ... (implementation remains the same as in your provided code)
     if (actionState.success && actionState.task) {
       setTasks(prevTasks => {
         const existingTaskIndex = prevTasks.findIndex(t => t.id === actionState.task.id);
         let newTasks;
-        if (existingTaskIndex > -1) { 
+        if (existingTaskIndex > -1) {
           newTasks = [...prevTasks];
           newTasks[existingTaskIndex] = actionState.task;
         } else {
@@ -238,7 +353,7 @@ export default function TodoPage() {
         return newTasks.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
       });
       setShowForm(false);
-    } else if (!actionState.success && actionState.message && !isPending) { 
+    } else if (!actionState.success && actionState.message && !isPending) {
       alert(`Error: ${actionState.message}`);
       console.error("Form action error:", actionState.message, actionState.errors);
     }
@@ -254,20 +369,16 @@ export default function TodoPage() {
 
   return (
     <PageLayout title="TODO">
-      {/* Modal Form */}
+      {/* ... (Rest of your JSX remains the same as in your provided code) ... */}
       {showForm && (
-        <TaskForm 
-          formAction={formAction} 
-          state={{ ...actionState, pending: isPending }} 
+        <TaskForm
+          formAction={formAction}
+          state={{ ...actionState, pending: isPending }}
           setShowForm={setShowForm}
         />
       )}
-
-      {/* Main Page Content - apply blur if form is shown */}
       <div className={`flex flex-col p-4 md:p-6 transition-filter duration-300 ${showForm ? 'filter blur-sm' : ''}`}>
-        <div className="flex flex-col gap-8"> {/* Increased gap */}
-          
-          {/* To Do Section */}
+        <div className="flex flex-col gap-8">
           <div className="flex flex-col">
             <div className="flex items-center justify-between mb-4 border-b-2 border-gray-200 pb-3">
               <h2 className="text-xl font-semibold text-gray-700">To Do</h2>
@@ -277,28 +388,26 @@ export default function TodoPage() {
                 </h2>
               )}
             </div>
-            
             <CardContent className="p-0">
               {isLoadingTasks || isLoadingQuota ? (
-                <div className="flex justify-center items-center h-48"> {/* Increased height */}
+                <div className="flex justify-center items-center h-48">
                   <p className="text-indigo-600 animate-pulse text-lg">Loading tasks & quota...</p>
                 </div>
               ) : (
                 <>
                   {visibleTodoTasks.length === 0 && blurredTodoTasks.length === 0 && (
-                     !canAddNewTask && !isLoadingQuota && actualActiveTodoTaskCount >= taskCountQuota ? null : // If quota is full, don't show "no task" yet, show quota message below
-                    <div className="flex flex-col items-center justify-center py-10 text-center">
-                      <AlertTriangle size={48} className="text-gray-300 mb-3" />
-                      <p className="text-xl text-gray-500 font-semibold">No tasks on your To-Do list yet!</p>
-                      <p className="text-sm text-gray-400 mt-1">Click "Add New Task" to get started.</p>
-                    </div>
+                    !canAddNewTask && !isLoadingQuota && actualActiveTodoTaskCount >= taskCountQuota ? null :
+                      <div className="flex flex-col items-center justify-center py-10 text-center">
+                        <AlertTriangle size={48} className="text-gray-300 mb-3" />
+                        <p className="text-xl text-gray-500 font-semibold">No tasks on your To-Do list yet!</p>
+                        <p className="text-sm text-gray-400 mt-1">Click "Add New Task" to get started.</p>
+                      </div>
                   )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-5 mb-5"> {/* Increased gap & margin */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-5 mb-5">
                     {visibleTodoTasks.map((task) => (
-                      <div 
-                        key={task.id} 
-                        className="p-5 border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 bg-white flex flex-col justify-between min-h-[220px]" // Enhanced styling
+                      <div
+                        key={task.id}
+                        className="p-5 border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 bg-white flex flex-col justify-between min-h-[220px]"
                       >
                         <div>
                           <h3 className="font-semibold text-lg text-gray-800 break-words mb-1.5">{task.name}</h3>
@@ -311,7 +420,7 @@ export default function TodoPage() {
                           )}
                         </div>
                         <div className="mt-4 pt-4 border-t border-gray-100">
-                          <div className="flex flex-wrap gap-x-3 gap-y-2 mb-4 text-xs"> {/* Increased gap & margin */}
+                          <div className="flex flex-wrap gap-x-3 gap-y-2 mb-4 text-xs">
                             {task.deadline && (
                               <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full font-medium">
                                 <Calendar size={14} />
@@ -321,7 +430,7 @@ export default function TodoPage() {
                             {task.hour && (
                               <div className="flex items-center gap-1.5 text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full font-medium">
                                 <Clock size={14} />
-                                <span>{task.hour.slice(0,5)}</span>
+                                <span>{task.hour.slice(0, 5)}</span>
                               </div>
                             )}
                             {task.tag && (
@@ -332,7 +441,7 @@ export default function TodoPage() {
                             )}
                           </div>
                           <Button
-                            variant="default" // Changed to default for primary action on card
+                            variant="default"
                             size="sm"
                             className="w-full mt-auto bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 transition-colors flex items-center justify-center gap-2 rounded-lg hover:cursor-pointer"
                             onClick={() => updateTaskStatus(task.id, 'completed')}
@@ -342,14 +451,13 @@ export default function TodoPage() {
                         </div>
                       </div>
                     ))}
-
                     {blurredTodoTasks.map((task) => (
-                      <div 
-                        key={task.id} 
+                      <div
+                        key={task.id}
                         className="p-5 border border-dashed border-gray-300 rounded-xl bg-gray-50 opacity-60 flex flex-col justify-between min-h-[220px] relative group"
                       >
                         <div className="absolute top-3 right-3 bg-amber-400 text-amber-800 text-xs px-2.5 py-1 rounded-full font-semibold shadow-sm z-10 flex items-center gap-1">
-                          <AlertTriangle size={12}/> Over Quota
+                          <AlertTriangle size={12} /> Over Quota
                         </div>
                         <div>
                           <h3 className="font-semibold text-md text-gray-700 break-words mb-1.5">{task.name}</h3>
@@ -363,29 +471,28 @@ export default function TodoPage() {
                         </div>
                         <div className="mt-4 pt-4 border-t border-gray-200">
                           <div className="flex flex-wrap gap-x-3 gap-y-2 mb-4 text-xs">
-                             {/* ... (deadline, hour, tag display as in visible tasks but perhaps slightly muted) ... */}
+                            {/* Metadata for blurred tasks */}
                           </div>
-                           <Button
+                          <Button
                             variant="outline"
                             size="sm"
                             className="w-full mt-auto bg-gray-300 text-gray-600 font-medium py-2.5 cursor-not-allowed flex items-center justify-center gap-2 rounded-lg"
                             disabled
                           >
-                            <XCircle size={16}/> Mark Completed
+                            <XCircle size={16} /> Mark Completed
                           </Button>
                         </div>
-                         <div className="absolute inset-0 bg-slate-700 bg-opacity-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl">
-                            <Link 
-                                href='/settings/billing' 
-                                className="px-5 py-2.5 bg-red-500 text-white font-semibold text-sm rounded-lg shadow-md hover:bg-red-600 transition-colors"
-                            >
-                                Upgrade to Use Task
-                            </Link>
+                        <div className="absolute inset-0 bg-slate-700 bg-opacity-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl">
+                          <Link
+                            href='/settings/billing'
+                            className="px-5 py-2.5 bg-red-500 text-white font-semibold text-sm rounded-lg shadow-md hover:bg-red-600 transition-colors"
+                          >
+                            Upgrade to Use Task
+                          </Link>
                         </div>
                       </div>
                     ))}
                   </div>
-
                   {actualActiveTodoTaskCount > taskCountQuota && !isLoadingQuota && (
                     <div className="flex flex-col items-center justify-center py-6 px-4 text-center mt-4 bg-red-50 border-2 border-dashed border-red-200 rounded-xl">
                       <AlertTriangle size={32} className="text-red-500 mb-2.5" />
@@ -395,39 +502,36 @@ export default function TodoPage() {
                       <p className="text-sm text-red-500 mb-4 max-w-md">
                         Some tasks are currently hidden or blurred because you've exceeded your active task limit. Please upgrade your plan or complete existing tasks.
                       </p>
-                      <Link 
-                        href='/settings/billing' 
+                      <Link
+                        href='/settings/billing'
                         className="inline-block px-6 py-2.5 bg-red-500 text-white font-medium text-sm rounded-lg shadow-md hover:bg-red-600 transition-colors"
                       >
                         Increase Quota Now
                       </Link>
                     </div>
                   )}
-                  
-                  {!showForm && ( // Only show Add Task button if form is not visible
+                  {!showForm && (
                     <div className={`flex flex-col items-center justify-center py-8 text-center`}>
-                        { canAddNewTask && !isLoadingQuota && (
-                          <Button 
-                              variant="default"
-                              size="lg"
-                              className="text-base flex items-center gap-2.5 hover:cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                              onClick={() => {
-                                // setEditingTask(null); // Ensure not in edit mode when adding new
-                                setShowForm(true);
-                              }}
-                          >
-                              <CirclePlus size={22} />
-                              <span>Add New Task</span>
-                          </Button>
-                        )}
-                        {/* Message if cannot add new task due to quota and quota is full */}
-                        { !canAddNewTask && !isLoadingQuota && actualActiveTodoTaskCount === taskCountQuota && visibleTodoTasks.length > 0 && ( // only show if there are some visible tasks but quota is full
-                            <div className="text-center mt-6 p-5 bg-amber-50 border border-amber-200 rounded-xl">
-                                <AlertTriangle size={28} className="text-amber-500 mb-2 mx-auto" />
-                                <p className="font-semibold text-amber-700">You've reached your task quota ({taskCountQuota}/{taskCountQuota}).</p>
-                                <p className="text-sm text-amber-600 mt-1">Complete existing tasks or <Link href='/settings/billing' className="underline hover:text-amber-700 font-medium">upgrade your plan</Link> to add more.</p>
-                            </div>
-                        )}
+                      {canAddNewTask && !isLoadingQuota && (
+                        <Button
+                          variant="default"
+                          size="lg"
+                          className="text-base flex items-center gap-2.5 hover:cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                          onClick={() => {
+                            setShowForm(true);
+                          }}
+                        >
+                          <CirclePlus size={22} />
+                          <span>Add New Task</span>
+                        </Button>
+                      )}
+                      {!canAddNewTask && !isLoadingQuota && actualActiveTodoTaskCount === taskCountQuota && visibleTodoTasks.length > 0 && (
+                        <div className="text-center mt-6 p-5 bg-amber-50 border border-amber-200 rounded-xl">
+                          <AlertTriangle size={28} className="text-amber-500 mb-2 mx-auto" />
+                          <p className="font-semibold text-amber-700">You've reached your task quota ({taskCountQuota}/{taskCountQuota}).</p>
+                          <p className="text-sm text-amber-600 mt-1">Complete existing tasks or <Link href='/settings/billing' className="underline hover:text-amber-700 font-medium">upgrade your plan</Link> to add more.</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
@@ -435,7 +539,6 @@ export default function TodoPage() {
             </CardContent>
           </div>
 
-          {/* Completed Section */}
           <div className="flex flex-col mt-6">
             <div className="flex items-center justify-between mb-4 border-b-2 border-gray-200 pb-3">
               <h2 className="text-xl font-semibold text-gray-700">Completed <span className='opacity-50'>(Deleted in 1 day)</span></h2>
@@ -448,9 +551,9 @@ export default function TodoPage() {
                 </div>
               ) : completedTasks.length === 0 ? (
                 <div className="flex flex-col justify-center items-center py-12 text-center text-gray-400">
-                    <BadgeCheck size={52} className="text-gray-300 mb-3.5" />
-                    <p className="font-medium text-lg text-gray-500">No completed tasks yet.</p>
-                    <p className="text-sm">Tasks you mark as done will appear here.</p>
+                  <BadgeCheck size={52} className="text-gray-300 mb-3.5" />
+                  <p className="font-medium text-lg text-gray-500">No completed tasks yet.</p>
+                  <p className="text-sm">Tasks you mark as done will appear here.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-5">

@@ -1,8 +1,8 @@
 // pages/forgot-password.js
 import { useState } from 'react';
-import { supabase } from '@/lib/supabaseClient'; 
+import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
-import { Mail, AlertCircle, CheckCircle } from 'lucide-react'; // Ikon
+import { Mail, AlertCircle, CheckCircle } from 'lucide-react'; // Icons
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -14,9 +14,9 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     setMessage({ type: '', content: '' });
 
-    // Pastikan URL redirect To adalah URL yang benar untuk halaman update password Anda
-    // dan sudah dikonfigurasi di Supabase Auth settings (URL Redirect)
-    const redirectTo = `${window.location.origin}/update-password`;
+    // Ensure the redirect URL is correct for your update password page
+    // and is configured in Supabase Auth settings (Redirect URLs)
+    const redirectTo = `${window.location.origin}/update-password`; // Make sure this path is correct
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo,
@@ -26,7 +26,7 @@ export default function ForgotPasswordPage() {
     if (error) {
       setMessage({ type: 'error', content: error.message });
     } else {
-      setMessage({ type: 'success', content: 'Jika email terdaftar, Anda akan menerima link untuk reset password.' });
+      setMessage({ type: 'success', content: 'If the email is registered, you will receive a link to reset your password.' });
     }
   };
 
@@ -35,9 +35,9 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md p-8 space-y-6 bg-white/70 backdrop-blur-md shadow-xl rounded-2xl">
         <div className="flex flex-col items-center">
           <Mail className="w-16 h-16 text-indigo-600 mb-4" />
-          <h1 className="text-3xl font-bold text-center text-gray-800">Lupa Password?</h1>
+          <h1 className="text-3xl font-bold text-center text-gray-800">Forgot Password?</h1>
           <p className="text-center text-gray-600 mt-2">
-            Masukkan alamat email Anda di bawah ini. Kami akan mengirimkan link untuk mereset password Anda.
+            Enter your email address below. We'll send you a link to reset your password.
           </p>
         </div>
 
@@ -79,22 +79,20 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 hover:cursor-pointer"
             >
-              {loading ? 'Mengirim...' : 'Kirim Link Reset'}
+              {loading ? 'Sending...' : 'Send Reset Link'}
             </button>
           </div>
         </form>
 
         <div className="text-center">
-          <div className="text-center">
-            <Link href="/login" className="font-medium text-sm text-indigo-600 hover:text-indigo-500">
-              Kembali ke Login
-            </Link>
-          </div>
+          <Link href="/login" className="font-medium text-sm text-indigo-600 hover:text-indigo-500">
+            Back to Login
+          </Link>
         </div>
       </div>
-       <p className="mt-8 text-center text-sm text-gray-600">
+      <p className="mt-8 text-center text-sm text-gray-600">
         Powered by TOOGAS!
       </p>
     </div>

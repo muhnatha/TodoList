@@ -1,3 +1,4 @@
+// billing.js
 'use client'
 import React, { useState, useEffect } from 'react'
 import PageLayout from "@/components/PageLayout"
@@ -5,12 +6,10 @@ import Image from "next/image"
 import { PencilIcon } from "lucide-react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { usePathname } from 'next/navigation'
-import { useActionState } from 'react' 
-// import { confirmBilling } from '@/app/action' 
-import BillForm from "@/components/BillForm" 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { supabase } from '@/lib/supabaseClient'
+import BillForm from "@/components/BillForm" // Import the BillForm component
 
 const FREE_NOTES_QUOTA_BASE = 3;
 const FREE_TODOS_QUOTA_BASE = 5;
@@ -22,10 +21,9 @@ async function fetchUserProfile() {
     return null;
   }
 
-  // notes_current_total_quota dan todos_current_total_quota
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('notes_current_total_quota, todos_current_total_quota, id, email') 
+    .select('*') // Fetches all columns, ensure this includes what you need e.g. avatar_url, user_metadata.
     .eq('id', user.id)
     .single();
 
@@ -33,60 +31,56 @@ async function fetchUserProfile() {
     if (profileError.code !== 'PGRST116') {
         console.error("Error fetching profile from Supabase:", profileError.message);
     } else {
-        console.log("No profile found for user ID:", user.id);
+        console.log("No profile found for user ID:", user.id, "Using auth user data as fallback.");
+        return {
+            id: user.id,
+            email: user.email,
+            avatar_url: user.user_metadata?.avatar_url,
+            user_metadata: user.user_metadata,
+            notes_current_total_quota: FREE_NOTES_QUOTA_BASE,
+            todos_current_total_quota: FREE_TODOS_QUOTA_BASE,
+        };
     }
     return null;
   }
   
   console.log("Fetched user profile from Supabase:", profile);
-  return profile;
+  return { 
+    ...user, 
+    ...profile, 
+    email: profile.email || user.email,
+    // Ensure avatar_url is correctly prioritized if present in both 'profile' and 'user.user_metadata'
+    avatar_url: profile.avatar_url || user.user_metadata?.avatar_url 
+  };
 }
 
-// const initialState = { // Hapus atau sesuaikan jika confirmBilling tidak digunakan
-//   message: '',
-//   success: false,
-// };
-
 export default function SettingsBillingPage() {
-  const [showForm, setShowForm] = useState(false); // Hapus jika BillForm tidak digunakan
-  // const [state, formAction] = useActionState(confirmBilling, initialState); // Hapus jika tidak digunakan
   const pathname = usePathname();
-  const [taskCount, setTaskCount] = useState(FREE_TODOS_QUOTA_BASE); // MODIFIKASI: State untuk total kuota To-Do
-  const [notesCount, setNotesCount] = useState(FREE_NOTES_QUOTA_BASE); // MODIFIKASI: State untuk total kuota Notes
+  const [taskCount, setTaskCount] = useState(FREE_TODOS_QUOTA_BASE);
+  const [notesCount, setNotesCount] = useState(FREE_NOTES_QUOTA_BASE);
   const [profileId, setProfileId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [userProfile, setUserProfile] = useState(null); // State untuk menyimpan profil pengguna
+  const [userProfile, setUserProfile] = useState(null);
+
+  // State for the confirmation modal
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [selectedPackageForConfirmation, setSelectedPackageForConfirmation] = useState(null);
 
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoading(true);
       try {
-        const userProfile = await fetchUserProfile();
-
-        if (userProfile) {
-          setUserProfile(userProfile);
-          // MODIFIKASI: Menggunakan kolom total kuota yang baru
-          if (userProfile.hasOwnProperty('todos_current_total_quota')) {
-            setTaskCount(userProfile.todos_current_total_quota);
-          } else {
-            console.warn("todos_current_total_quota not found in profile:", userProfile);
-            setTaskCount(FREE_TODOS_QUOTA_BASE);
-          }
-          if (userProfile.hasOwnProperty('notes_current_total_quota')) {
-            setNotesCount(userProfile.notes_current_total_quota);
-          } else {
-            console.warn("notes_current_total_quota not found in profile:", userProfile);
-            setNotesCount(FREE_NOTES_QUOTA_BASE);
-          }
-          if (userProfile.hasOwnProperty('id')) {
-            setProfileId(userProfile.id);
-          } else {
-            console.error("Profile ID not found in fetched data:", userProfile);
-          }
+        const fetchedProfileData = await fetchUserProfile();
+        if (fetchedProfileData) {
+          setUserProfile(fetchedProfileData);
+          setTaskCount(fetchedProfileData.todos_current_total_quota ?? FREE_TODOS_QUOTA_BASE);
+          setNotesCount(fetchedProfileData.notes_current_total_quota ?? FREE_NOTES_QUOTA_BASE);
+          setProfileId(fetchedProfileData.id || '');
         } else {
           console.log("No profile data loaded for the user.");
           setTaskCount(FREE_TODOS_QUOTA_BASE);
           setNotesCount(FREE_NOTES_QUOTA_BASE);
+          setProfileId('');
         }
       } catch (error) {
         console.error("Error in loadInitialData (useEffect):", error);
@@ -97,7 +91,6 @@ export default function SettingsBillingPage() {
         setIsLoading(false);
       }
     };
-
     loadInitialData();
   }, []);
 
@@ -121,7 +114,6 @@ export default function SettingsBillingPage() {
 
   async function recalculateAndUpdateProfileQuota(userId, packageType) {
     const baseFreeQuota = packageType === 'notes' ? FREE_NOTES_QUOTA_BASE : FREE_TODOS_QUOTA_BASE;
-
     const { data: activePackages, error: fetchError } = await supabase
       .from('quota_packages')
       .select('items_added')
@@ -133,12 +125,10 @@ export default function SettingsBillingPage() {
       console.error(`Error fetching active ${packageType} packages:`, fetchError.message);
       return;
     }
-
     let totalPaidQuota = 0;
     if (activePackages) {
       totalPaidQuota = activePackages.reduce((sum, pkg) => sum + pkg.items_added, 0);
     }
-
     const newTotalCurrentQuota = baseFreeQuota + totalPaidQuota;
     const columnToUpdate = packageType === 'notes' ? 'notes_current_total_quota' : 'todos_current_total_quota';
 
@@ -151,23 +141,22 @@ export default function SettingsBillingPage() {
       console.error(`Error updating ${packageType} total quota in profiles:`, updateProfileError.message);
     } else {
       console.log(`Successfully updated ${packageType} total quota for user ${userId} to ${newTotalCurrentQuota}`);
-      if (packageType === 'notes') {
-        setNotesCount(newTotalCurrentQuota);
-      } else {
-        setTaskCount(newTotalCurrentQuota);
-      }
+      if (packageType === 'notes') setNotesCount(newTotalCurrentQuota);
+      else setTaskCount(newTotalCurrentQuota);
     }
   }
 
-  async function handlePurchaseQuotaPackage(packageType, itemsToAdd) {
+  // Renamed from handlePurchaseQuotaPackage to be the function called *after* confirmation
+  async function executePurchaseQuotaPackage(packageType, itemsToAdd) {
     if (!profileId) {
-      alert("Informasi pengguna tidak tersedia. Silakan coba lagi.");
+      alert("User information is unavailable. Please try again.");
+      setShowConfirmationModal(false); // Close modal even if profileId is missing
       return;
     }
-    setIsLoading(true);
+    setIsLoading(true); // Set loading for the actual purchase action
     const purchaseTime = new Date();
     const expiryTime = new Date(purchaseTime.getTime());
-    expiryTime.setMinutes(purchaseTime.getMinutes() + 3); // Tambah 30 hari
+    expiryTime.setDate(purchaseTime.getDate() + 30);
 
     const { data: newPackage, error: purchaseError } = await supabase
       .from('quota_packages')
@@ -182,24 +171,40 @@ export default function SettingsBillingPage() {
       .select()
       .single();
 
+    setShowConfirmationModal(false); // Close modal regardless of outcome after this point
+
     if (purchaseError) {
       console.error(`Error purchasing ${packageType} package:`, purchaseError.message);
-      alert(`Gagal menambahkan paket ${packageType}. ${purchaseError.message}`);
-      setIsLoading(false);
-      return;
+      alert(`Failed to add ${packageType} package. ${purchaseError.message}`);
+    } else {
+      console.log(`${packageType} package purchased:`, newPackage);
+      await recalculateAndUpdateProfileQuota(profileId, packageType);
+      alert(`Successfully added ${itemsToAdd} ${packageType === 'notes' ? 'Notes' : 'To-Do items'} to your quota for 30 days!`);
     }
-
-    console.log(`${packageType} package purchased:`, newPackage);
-    await recalculateAndUpdateProfileQuota(profileId, packageType);
-    setIsLoading(false);
-    alert(`Berhasil menambahkan ${itemsToAdd} ${packageType === 'notes' ? 'catatan' : 'tugas'} ke kuota Anda selama 30 hari!`);
+    setIsLoading(false); // Reset loading state
   }
+
+  // This function is called when a purchase button is clicked to open the modal
+  const initiatePurchaseConfirmation = (type, items, price, actionText) => {
+    if (!profileId) {
+        alert("User information is unavailable. Please log in again.");
+        return;
+    }
+    setSelectedPackageForConfirmation({ type, items, price, actionText });
+    setShowConfirmationModal(true);
+  };
 
   async function handleResetToFreeTier(packageType) {
     if (!profileId) {
       alert("Informasi pengguna tidak tersedia. Silakan coba lagi.");
       return;
     }
+
+    const confirmationMessage = `Are you sure you want to reset your ${packageType === 'notes' ? 'Notes' : 'To-Do List'} quota to the free tier? All active paid packages for this category will be deactivated.`;
+    if (!window.confirm(confirmationMessage)) {
+      return; 
+    }
+
     setIsLoading(true);
     const { error: deactivateError } = await supabase
       .from('quota_packages')
@@ -211,36 +216,34 @@ export default function SettingsBillingPage() {
     if (deactivateError) {
       console.error(`Error deactivating ${packageType} packages:`, deactivateError.message);
       alert(`Gagal mengatur ulang ke paket gratis untuk ${packageType}. ${deactivateError.message}`);
-      setIsLoading(false);
-      return;
+    } else {
+      // Only recalculate and alert if deactivation was successful or no error (even if no rows affected)
+      await recalculateAndUpdateProfileQuota(profileId, packageType);
+      alert(`Kuota ${packageType === 'notes' ? 'catatan' : 'tugas'} telah diatur ulang ke paket gratis.`);
     }
-
-    await recalculateAndUpdateProfileQuota(profileId, packageType);
     setIsLoading(false);
-    alert(`Kuota ${packageType === 'notes' ? 'catatan' : 'tugas'} telah diatur ulang ke paket gratis.`);
   }
 
   const navSettings = [
-        { href: "/settings/details", text: "My Details"},
-        { href: "/settings/password", text: "Password"},
-        { href: "/settings/billing", text: "Billing"},
-        { href: "/settings/log", text: "Activity Log"}
-    ];
+    { href: "/settings/details", text: "My Details"},
+    { href: "/settings/password", text: "Password"},
+    { href: "/settings/billing", text: "Billing"},
+    { href: "/settings/log", text: "Activity Log"}
+  ];
 
-    const renderNavSettings = (item, index) => (
-        <li key={index}>
-            <a 
-                href={item.href}
-                className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'} text-sm sm:text-md text-[#232360]`}
-            >
-                {item.text}
-            </a>
-        </li>
-    );
+  const renderNavSettings = (item, index) => (
+    <li key={index}>
+        <Link
+          href={item.href}
+          className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'} text-sm sm:text-md text-[#232360]`}
+        >
+          {item.text}
+        </Link>
+    </li>
+  );
 
   return (
     <PageLayout title="SETTINGS">
-      {/* ... Bagian Image, BillForm, Avatar, dll. tetap sama ... */}
       <div className="w-full h-2/5 relative">
         <Image 
           src="/bg-settings.svg"
@@ -251,32 +254,37 @@ export default function SettingsBillingPage() {
         />
       </div>
 
-      {/* {showForm &&  ( 
-        <BillForm 
-        //   formAction={formAction} 
-        //   state={state} 
-          setShowForm={setShowForm} 
-        />
-      )} */}
+      {/* Render the BillForm (Confirmation Modal) */}
+      <BillForm
+        showModal={showConfirmationModal}
+        setShowModal={setShowConfirmationModal}
+        packageDetails={selectedPackageForConfirmation}
+        onConfirm={() => {
+          if (selectedPackageForConfirmation) {
+            executePurchaseQuotaPackage(selectedPackageForConfirmation.type, selectedPackageForConfirmation.items);
+          }
+        }}
+        isLoading={isLoading}
+      />
 
-      <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60] flex justify-between items-end">
-          <div className="flex items-end space-x-7">
-              <div className="relative w-24 h-24 flex items-center justify-center">
-                  <Avatar className={"w-16 h-16"}>
-                      <AvatarImage src={avatarSrc} />
-                      <AvatarFallback>{avatarFallback}</AvatarFallback>
-                  </Avatar>
-                  <button 
-                      aria-label="Edit profile picture"
-                      className="absolute bottom-3 right-3 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
-                  >
-                      <PencilIcon className="w-4 h-4" />
-                  </button>
-              </div>
-              <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#03030b]">
-              Settings
-              </h1>
+      <div className="z-10 py-6 pl-5 min-[636px]:pl-15 mt-[-60px] flex justify-between items-end">
+        <div className="flex items-end space-x-7">
+          <div className="relative w-24 h-24 flex items-center justify-center">
+            <Avatar className={"w-16 h-16"}>
+              <AvatarImage src={avatarSrc} />
+              <AvatarFallback>{avatarFallback}</AvatarFallback>
+            </Avatar>
+            <button 
+              aria-label="Edit profile picture"
+              className="absolute bottom-3 right-3 bg-[#232360] text-white rounded-full p-1.5 flex items-center justify-center hover:cursor-pointer"
+            >
+              <PencilIcon className="w-4 h-4" />
+            </button>
           </div>
+          <h1 className="text-2xl sm:text-3xl pb-1 font-bold text-[#03030b]">
+            Settings
+          </h1>
+        </div>
       </div>
 
       <div className="p-6"> 
@@ -287,101 +295,82 @@ export default function SettingsBillingPage() {
         </nav>
       </div>
       
-      <div className="flex flex-col gap-6">
-        {/* BAGIAN TO-DO LIST */}
-        <div className="flex flex-row flex-wrap lg:flex-nowrap w-full items-center justify-center text-[#232360]">
-          <p className="lg:w-20 text-center text-semibold">TO-DO LIST</p>
-          <div className="flex flex-row gap-6 items-center w-full">
-            <div className="w-1/3 text-center lg:px-10 bg-[#D9D9D9] rounded-md hover:bg-[#A0A0A0]">
+      <div className="flex flex-col gap-10 p-4 md:p-6">
+        {/* TO-DO LIST Quota Section */}
+        <div className="flex flex-col items-center text-[#232360] space-y-3">
+          <h2 className="text-xl font-semibold self-start">TO-DO LIST QUOTA: <span className="text-indigo-600 font-bold">{isLoading && !userProfile ? 'Loading...' : `${taskCount} items`}</span></h2>
+          <div className="flex flex-row flex-wrap lg:flex-nowrap w-full items-stretch justify-center gap-4 md:gap-6">
+            <div className="w-full md:w-1/3 text-center bg-[#D9D9D9] rounded-md hover:bg-[#C0C0C0] transition-colors flex flex-col">
               <Button
-                // MODIFIKASI: onClick untuk To-Do
                 onClick={() => handleResetToFreeTier('todos')}
                 disabled={isLoading}
-                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
+                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0 flex-grow flex flex-col justify-center items-center"
               >
-                {/* ... Konten Tombol FREE ... */}
-                <div className="flex flex-col justify-center items-center">
-                  <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">FREE</h1>
-                  <p className="text-sm mt-8 mb-[-20] min-[756px]:mb-0">User got free {FREE_TODOS_QUOTA_BASE} to-do items</p>
-                </div>
+                <h3 className="font-bold text-2xl min-[900px]:text-3xl">FREE</h3>
+                <p className="text-sm mt-2">Base Quota: {FREE_TODOS_QUOTA_BASE} items</p>
+                <p className="text-xs mt-1">(Reset to this tier)</p>
               </Button>
             </div>
-            <div className="w-1/3 bg-[#8FEBFF] rounded-md hover:bg-[#1FABAF] transition-colors">
+            <div className="w-full md:w-1/3 bg-[#8FEBFF] rounded-md hover:bg-[#6CDAE0] transition-colors flex flex-col">
               <Button 
-                // MODIFIKASI: onClick untuk To-Do
-                onClick={() => handlePurchaseQuotaPackage('todos', 5)}
+                onClick={() => initiatePurchaseConfirmation('todos', 5, '10.000/month', '+5 To-Do Items')}
                 disabled={isLoading}
-                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
+                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0 flex-grow flex flex-col justify-center items-center"
               >
-                {/* ... Konten Tombol +5 ... */}
-                <div className="flex flex-col justify-center items-center text-center">
-                  <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">+5</h1>
-                  <sub className="font-light">add 5 to-do items</sub>
-                  <p className="text-sm mt-8">10.000/month</p>
-                </div>
+                <h3 className="font-bold text-2xl min-[900px]:text-3xl">+5</h3>
+                <sub className="font-light">Add 5 To-Do Items</sub>
+                <p className="text-sm mt-2">10.000/month</p>
               </Button>
             </div>
-            <div className="w-1/3 lg:px-10 bg-[#1EA7FF] rounded-md hover:bg-[#1E57AF]">
+            <div className="w-full md:w-1/3 bg-[#1EA7FF] rounded-md hover:bg-[#1A8CD8] transition-colors flex flex-col">
               <Button 
-                // MODIFIKASI: onClick untuk To-Do
-                onClick={() => handlePurchaseQuotaPackage('todos', 10)}
+                onClick={() => initiatePurchaseConfirmation('todos', 10, '18.000/month', '+10 To-Do Items')}
                 disabled={isLoading}
-                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
+                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0 flex-grow flex flex-col justify-center items-center"
               >
-                {/* ... Konten Tombol +10 ... */}
-                <div className="flex flex-col justify-center items-center">
-                  <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">+10</h1>
-                  <sub className="font-light">add 10 to-do items</sub>
-                  <p className="text-sm mt-8">18.000/month</p>
-                </div>
+                <h3 className="font-bold text-2xl min-[900px]:text-3xl">+10</h3>
+                <sub className="font-light">Add 10 To-Do Items</sub>
+                <p className="text-sm mt-2">18.000/month</p>
               </Button>
             </div>
           </div>
         </div>
 
-        {/* BAGIAN NOTES */}
-        <div className="flex flex-row flex-wrap lg:flex-nowrap w-full items-center justify-center text-[#232360] mb-5">
-          <p className="w-20 text-center text-semibold">NOTES</p>
-          <div className="flex flex-row gap-6 text-center items-center w-full">
-            <div className="w-1/3 text-center lg:px-10 bg-[#D9D9D9] rounded-md hover:bg-[#A0A0A0] transition-colors">
+        {/* NOTES Quota Section */}
+        <div className="flex flex-col items-center text-[#232360] space-y-3 mb-5">
+          <h2 className="text-xl font-semibold self-start">NOTES QUOTA: <span className="text-purple-600 font-bold">{isLoading && !userProfile ? 'Loading...' : `${notesCount} items`}</span></h2>
+          <div className="flex flex-row flex-wrap lg:flex-nowrap w-full items-stretch justify-center gap-4 md:gap-6">
+            <div className="w-full md:w-1/3 text-center bg-[#D9D9D9] rounded-md hover:bg-[#C0C0C0] transition-colors flex flex-col">
               <Button
-                // MODIFIKASI: onClick untuk Notes
                 onClick={() => handleResetToFreeTier('notes')}
                 disabled={isLoading}
-                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
+                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0 flex-grow flex flex-col justify-center items-center"
               >
-                <div className="flex flex-col justify-center items-center">
-                  <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">FREE</h1>
-                  <p className="text-sm mt-8 mb-[-20] min-[756px]:mb-0">User got free {FREE_NOTES_QUOTA_BASE} notes items</p>
-                </div>
+                <h3 className="font-bold text-2xl min-[900px]:text-3xl">FREE</h3>
+                <p className="text-sm mt-2">Base Quota: {FREE_NOTES_QUOTA_BASE} items</p>
+                <p className="text-xs mt-1">(Reset to this tier)</p>
               </Button>
             </div>
-            <div className="w-1/3 bg-[#8FEBFF] rounded-md hover:bg-[#1FABAF] transition-colors">
+            <div className="w-full md:w-1/3 bg-[#8FEBFF] rounded-md hover:bg-[#6CDAE0] transition-colors flex flex-col">
               <Button
-                // MODIFIKASI: onClick untuk Notes
-                onClick={() => handlePurchaseQuotaPackage('notes', 5)}
+                onClick={() => initiatePurchaseConfirmation('notes', 5, '10.000/month', '+5 Notes')}
                 disabled={isLoading}
-                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
+                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0 flex-grow flex flex-col justify-center items-center"
               >
-                <div className="flex flex-col justify-center items-center text-center">
-                  <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">+5</h1>
-                  <sub className="font-light">add 5 notes items</sub>
-                  <p className="text-sm mt-8">10.000/month</p>
-                </div>
+                <h3 className="font-bold text-2xl min-[900px]:text-3xl">+5</h3>
+                <sub className="font-light">Add 5 Notes</sub>
+                <p className="text-sm mt-2">10.000/month</p>
               </Button>
             </div>
-            <div className="w-1/3 bg-[#1EA7FF] rounded-md hover:bg-[#1E57AF] transition-colors">
+            <div className="w-full md:w-1/3 bg-[#1EA7FF] rounded-md hover:bg-[#1A8CD8] transition-colors flex flex-col">
               <Button
-                // MODIFIKASI: onClick untuk Notes
-                onClick={() => handlePurchaseQuotaPackage('notes', 10)}
+                onClick={() => initiatePurchaseConfirmation('notes', 10, '18.000/month', '+10 Notes')}
                 disabled={isLoading}
-                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0"
+                className="hover:cursor-pointer w-full h-full py-5 px-2 lg:px-7 text-[#232360] bg-transparent hover:bg-transparent focus:ring-0 flex-grow flex flex-col justify-center items-center"
               >
-                <div className="flex flex-col justify-center items-center">
-                  <h1 className="font-bold text-2xl min-[900px]:text-3xl mt-10">+10</h1>
-                  <sub className="font-light">add 10 notes items</sub>
-                  <p className="text-sm mt-8">18.000/month</p>
-                </div>
+                <h3 className="font-bold text-2xl min-[900px]:text-3xl">+10</h3>
+                <sub className="font-light">Add 10 Notes</sub>
+                <p className="text-sm mt-2">18.000/month</p>
               </Button>
             </div>
           </div>

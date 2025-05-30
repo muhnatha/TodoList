@@ -1,97 +1,76 @@
-// form untuk konfirmasi langganan
 'use client'
-import React from 'react'
+import React from 'react';
+import { Button } from "@/components/ui/button"; 
 
-export default function TaskForm({ 
-  formAction, 
-  state, 
-  setShowForm 
+export default function BillForm({
+  showModal,      
+  setShowModal,   
+  packageDetails, 
+  onConfirm,      
+  isLoading       
 }) {
-  const handleFormSubmit = async (formData) => {
-    if (typeof formAction === 'function') {
-      await formAction(formData); // Execute the passed server action or function
+  if (!showModal || !packageDetails) {
+    return null;
+  }
+
+  const handleConfirm = async () => {
+    if (typeof onConfirm === 'function') {
+      await onConfirm(); 
     }
-    setShowForm(false); // Set showForm to false after the action completes
   };
 
   return (
-    <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white z-10 border-2 rounded-md p-4 w-1/2 2xl:w-1/4'>
-      <form action={handleFormSubmit} className='w-full flex justify-start items-center'>
-        <div className='flex flex-col gap-3 w-full'>
-          <h1 className='font-bold text-center text-xl'>Konfirmasi Pembayaran</h1>
+    <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'> 
+      <div className='bg-white rounded-lg shadow-xl p-6 w-full max-w-md transform transition-all'>
+        <div className='flex justify-between items-center mb-4'>
+          <h2 className='text-xl font-semibold text-gray-800'>Confirm Package Upgrade</h2>
           <button
             type='button'
-            onClick={() => setShowForm(false)}
-            className='absolute top-1 right-4 text-gray-500 hover:text-gray-700 hover:cursor-pointer'
+            onClick={() => setShowModal(false)}
+            disabled={isLoading}
+            className='text-gray-400 hover:text-gray-600 transition-colors hover:cursor-pointer'
+            aria-label="Close"
           >
-            <span className='text-2xl font-semibold'>x</span>
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
-
-          <div className='flex flex-col gap-1'>
-            <label htmlFor='taskName' className='font-semibold'>Nama</label>
-            <input
-              type='text'
-              name='taskName'
-              id='taskName'
-              placeholder='Masukkan nama tugas'
-              className='border-1 rounded-md py-1 px-3 bg-[#6772FE]/20'
-              required
-            />
-          </div>
-
-          <div className='flex flex-col gap-1'>
-            <label htmlFor='taskDescription' className='font-semibold'>Deskripsi</label>
-            <textarea
-              name='taskDescription'
-              id='taskDescription'
-              placeholder='Masukkan deskripsi tugas'
-              className='border-1 rounded-md py-1 px-3 bg-[#6772FE]/20 w-full'
-            />
-          </div>
-
-          <div className='md:grid md:grid-cols-2 md:gap-4'>
-            <div className='flex flex-col gap-1'>
-              <label htmlFor='taskDeadline' className='font-semibold'>Deadline</label>
-              <div className='flex gap-2 w-full'>
-                <input
-                  type='date'
-                  name='taskDeadline'
-                  id='taskDeadline'
-                  className='border-1 rounded-md py-1 px-3 bg-[#6772FE]/20 w-1/2'
-                  required
-                />
-                <input
-                  type='time'
-                  name='taskDeadlineTime'
-                  id='taskDeadlineTime'
-                  className='border-1 rounded-md py-1 mr-1 px-3 bg-[#6772FE]/20 w-1/2'
-                  required
-                />
-              </div>
-            </div>
-
-            <div className='flex flex-row md:flex-col gap-2 md:gap-1 mt-6 md:mt-0'>
-              <label htmlFor='taskTag' className='font-semibold'>Tag</label>
-              <select
-                name='taskTag'
-                id='taskTag'
-                className='border-1 rounded-md py-1 px-3 bg-[#6772FE]/20 w-full text-center'
-                required
-              >
-                <option value=''>Select a tag</option>
-                <option value='Cloud Computing'>Cloud Computing</option>
-                <option value='Personal'>Personal</option>
-                <option value='Urgent'>Urgent</option>
-              </select>
-            </div>
-          </div>
-
-          <button
-            type='submit'
-            className='bg-[#6772FE] text-white rounded-md py-2 px-4 hover:bg-[#5469D4] hover:cursor-pointer'
-          >Add</button>
         </div>
-      </form>
+
+        <div className='space-y-4 text-gray-700'>
+          <p>You are about to upgrade your quota with the following package:</p>
+          <div className='bg-indigo-50 p-4 rounded-lg border border-indigo-200'>
+            <p className='font-semibold text-indigo-700 text-lg'>
+              Package: {packageDetails.actionText} ({packageDetails.type === 'todos' ? 'To-Do Items' : 'Notes'})
+            </p>
+            <p className='text-sm text-indigo-600'>Items to add: {packageDetails.items}</p>
+            <p className='text-sm text-indigo-600'>Price: {packageDetails.price}</p>
+          </div>
+          <p>Do you want to proceed?</p>
+        </div>
+
+        {/* {state && state.message && (
+          <p className={`mt-2 text-sm ${state.success ? 'text-green-600' : 'text-red-600'}`}>
+            {state.message}
+          </p>
+        )} */}
+
+        <div className='mt-6 flex justify-end space-x-3'>
+          <Button
+            variant="outline"
+            onClick={() => setShowModal(false)}
+            disabled={isLoading}
+            className="hover:cursor-pointer"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={isLoading}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white hover:cursor-pointer"
+          >
+            {isLoading ? 'Processing...' : 'Confirm Upgrade'}
+          </Button>
+        </div>
+      </div>
     </div>
-  )
+  );
 }

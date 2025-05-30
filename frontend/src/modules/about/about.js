@@ -13,10 +13,10 @@ export default function About() {
             </div>
             <div className='bg-white/50 rounded-lg max-w-2/3 sm:max-w-1/2'>
                 <div className='p-5'>
-                    <p className='text-justify'><span className='font-bold'>TOOGAS</span> dibuat untuk membantu kamu mencatat, mengatur, dan menyelesaikan berbagai tugas harian dengan lebih mudah dan terorganisir. 
-                        Mulai dari hal kecil seperti belanja kebutuhan, sampai merencanakan tugas besar, semuanya bisa kamu kelola dalam satu tempat. Dengan 
-                        tampilan yang simpel dan fitur yang praktis, aplikasi ini dirancang agar kamu bisa tetap fokus dan produktif tanpa ribet. Semoga aplikasi 
-                        ini bisa jadi teman andalan kamu dalam menjalani hari-hari yang sibuk.</p>
+                    <p className='text-justify'><span className='font-bold'>TOOGAS</span> is made to help you record, organize, and 
+                    complete various daily tasks more easily and organized. From small things like shopping, to planning big tasks, you 
+                    can manage everything in one place. With a simple interface and practical features, this app is designed to keep you 
+                    focused and productive without the hassle. Hopefully, this app will become your go-to companion for busy days.</p>
                 </div>
             </div>
             <Link href='/login' className='hover:underline text-white font-semibold'>Go to Login →</Link>
