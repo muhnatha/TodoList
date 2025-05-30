@@ -227,7 +227,7 @@ export default function TodoPage() {
   useEffect(() => {
     const deleteOldCompletedTasks = async () => {
       if (!currentUser) return;
-      const cutoff = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+      const cutoff = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(); // 1 day: 1 * 24 * 60 * 60 * 1000
       const { error, count } = await supabase // Dapatkan count untuk logging
         .from('task')
         .delete({ count: 'exact' }) // Minta Supabase mengembalikan jumlah baris yang dihapus
