@@ -351,7 +351,7 @@ export default function SettingsDetailsPage() {
         </div>
 
         <div className="pl-6 min-[636px]:pl-15 pb-5">
-            <div className="border-1 rounded-lg w-2/3 md:w-1/2 text-[#232360]">
+            <div className="border-1 rounded-lg w-full sm:w-2/3 md:w-1/2 text-[#232360]">
                 <p className="px-5 pt-5">Your package</p>
                 { taskCount <= 5 && notesCount <= 3 ? (
                     <div className="flex flex-row justify-between items-center px-5 ">

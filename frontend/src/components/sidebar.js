@@ -202,7 +202,7 @@ const Sidebar = () => {
                 </nav>
 
                 {/* Sidebar Footer (Optional) */}
-                <div className="flex justify-center items-end py-4 h-full">
+                <div className="flex justify-center items-end py-4">
                     <a href='/settings/details'>
                         <Avatar className={"w-10 h-10 block sm:hidden"}>
                             <AvatarImage src={avatarSrc} />
