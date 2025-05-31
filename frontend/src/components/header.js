@@ -1,18 +1,16 @@
 'use client'
-import { React, useState, useEffect } from 'react' // Added useEffect
+import { React, useState, useEffect } from 'react' 
 import { Bell, X, CheckCircle } from 'lucide-react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { supabase } from '@/lib/supabaseClient'; // Adjust path as necessary
+import { supabase } from '@/lib/supabaseClient'; 
 
-async function fetchUserProfile(supabase) { // Pass supabase instance if not globally available
-  // Get the currently authenticated user
-  const { data: { user: authUser }, error: userError } = await supabase.auth.getUser(); // Renamed to authUser to avoid confusion
+async function fetchUserProfile(supabase) { 
+  const { data: { user: authUser }, error: userError } = await supabase.auth.getUser(); 
   if (userError || !authUser) {
     console.error("Error fetching user or no user logged in:", userError?.message || "No user session");
     return null;
   }
 
-  // Fetch the profile for this user
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
@@ -25,21 +23,17 @@ async function fetchUserProfile(supabase) { // Pass supabase instance if not glo
     } else {
       console.log("No profile found for user ID:", authUser.id);
     }
-    // Return the authUser data even if profile is not found,
-    // so we can still display email/fallback avatar
     return { id: authUser.id, email: authUser.email, user_metadata: authUser.user_metadata };
   }
   
   console.log("Fetched user profile:", profile);
-  // Ensure the returned object has a structure that includes email and user_metadata for the avatar
-  // If 'profile' doesn't directly contain email or avatar_url, merge with authUser
-  return { ...authUser, ...profile }; // Spread authUser first, then profile to override if fields exist in both
+  return { ...authUser, ...profile }; 
 }
 
-export default function Header({ title, supabase }) { // Pass supabase as a prop
+export default function Header({ title, supabase }) { 
     const [showNotification, setShowNotification] = useState(false);
-    const [userProfile, setUserProfile] = useState(null); // State to store user profile
-    const [loadingProfile, setLoadingProfile] = useState(true); // State to handle loading
+    const [userProfile, setUserProfile] = useState(null); 
+    const [loadingProfile, setLoadingProfile] = useState(true); 
 
     useEffect(() => {
         async function loadProfile() {
@@ -57,15 +51,14 @@ export default function Header({ title, supabase }) { // Pass supabase as a prop
     }, [supabase]); // Re-run if supabase prop changes
 
     // Determine avatar source and fallback text
-    let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; // Default
+    let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; 
     let avatarFallback = 'U';
     let userEmail = 'User';
 
     if (userProfile) {
         userEmail = userProfile.email || 'User';
-        // Prefer avatar_url from profiles table, then from auth.user.user_metadata, then ui-avatars
-        avatarSrc = userProfile.avatar_url || // from 'profiles' table
-                    userProfile.user_metadata?.avatar_url || // from 'auth.users' table
+        avatarSrc = userProfile.avatar_url || 
+                    userProfile.user_metadata?.avatar_url || 
                     `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
         
         if (userEmail && userEmail.includes('@')) {

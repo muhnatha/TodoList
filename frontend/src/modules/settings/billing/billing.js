@@ -54,52 +54,6 @@ async function fetchUserProfile() {
   };
 }
 
-// Fungsi baru untuk memeriksa dan menonaktifkan paket yang kedaluwarsa untuk tipe tertentu
-async function checkAndDeactivateSpecificExpiredPackages(userId, packageType) {
-  if (!userId) return { deactivated: 0, hadExpired: false };
-
-  const now = new Date().toISOString();
-  let hadExpired = false;
-
-  // Cari paket aktif tipe tertentu yang sudah kedaluwarsa
-  const { data: expiredPackages, error: fetchExpiredError } = await supabase
-    .from('quota_packages')
-    .select('id') 
-    .eq('user_id', userId) 
-    .eq('package_type', packageType) 
-    .eq('is_active', true) 
-    .lte('expires_at', now); // Kondisi utama: expires_at <= waktu sekarang
-
-  if (fetchExpiredError) {
-    console.error(`Error fetching expired ${packageType} packages:`, fetchExpiredError.message);
-    return { deactivated: 0, hadExpired: false };
-  }
-
-  if (expiredPackages && expiredPackages.length > 0) {
-    hadExpired = true;
-    const packageIdsToDeactivate = expiredPackages.map(pkg => pkg.id);
-    
-    console.log(`Found ${expiredPackages.length} expired ${packageType} package(s) to deactivate for user ${userId}.`);
-
-    // Nonaktifkan paket yang kedaluwarsa
-    const { count, error: deactivateError } = await supabase
-      .from('quota_packages')
-      .update({ is_active: false}) //
-      .in('id', packageIdsToDeactivate);
-
-    if (deactivateError) {
-      console.error(`Error deactivating expired ${packageType} packages:`, deactivateError.message); //
-      return { deactivated: 0, hadExpired: true }; 
-    } else {
-      console.log(`Successfully deactivated ${count ?? 0} expired ${packageType} package(s).`);
-      return { deactivated: count ?? 0, hadExpired: true };
-    }
-  } else {
-    console.log(`No expired ${packageType} packages found for user ${userId}.`);
-    return { deactivated: 0, hadExpired: false };
-  }
-}
-
 
 export default function SettingsBillingPage() {
   const pathname = usePathname(); 
@@ -158,22 +112,22 @@ useEffect(() => {
       const fetchedProfileData = await fetchUserProfile();
       if (fetchedProfileData) {
         setUserProfile(fetchedProfileData);
-        setTaskCount(fetchedProfileData.todos_current_total_quota ?? FREE_TODOS_QUOTA_BASE); //
-        setNotesCount(fetchedProfileData.notes_current_total_quota ?? FREE_NOTES_QUOTA_BASE); //
-        setProfileId(fetchedProfileData.id || ''); //
+        setTaskCount(fetchedProfileData.todos_current_total_quota ?? FREE_TODOS_QUOTA_BASE); 
+        setNotesCount(fetchedProfileData.notes_current_total_quota ?? FREE_NOTES_QUOTA_BASE); 
+        setProfileId(fetchedProfileData.id || ''); 
       } else {
-        console.log("No profile data loaded for the user."); //
-        setTaskCount(FREE_TODOS_QUOTA_BASE); //
-        setNotesCount(FREE_NOTES_QUOTA_BASE); //
-        setProfileId(''); //
+        console.log("No profile data loaded for the user."); 
+        setTaskCount(FREE_TODOS_QUOTA_BASE); 
+        setNotesCount(FREE_NOTES_QUOTA_BASE); 
+        setProfileId(''); 
       }
     } catch (error) {
-      console.error("Error in loadInitialData (useEffect):", error); //
-      setTaskCount(FREE_TODOS_QUOTA_BASE); //
-      setNotesCount(FREE_NOTES_QUOTA_BASE); //
-      setProfileId(''); //
+      console.error("Error in loadInitialData (useEffect):", error); 
+      setTaskCount(FREE_TODOS_QUOTA_BASE); 
+      setNotesCount(FREE_NOTES_QUOTA_BASE); 
+      setProfileId(''); 
     } finally {
-      setIsLoading(false); //
+      setIsLoading(false); 
     }
   };
   loadInitialData();
@@ -205,9 +159,9 @@ useEffect(() => {
     setIsLoading(true); 
     const purchaseTime = new Date(); 
     const expiryTime = new Date(purchaseTime.getTime()); 
-    const duration = 1;
-    // Simulasi paket kedaluwarsa dalam 1 menit untuk pengujian
-    expiryTime.setMinutes(purchaseTime.getMinutes() + duration); 
+    const duration = 30;
+    // Set expiry to 30 days from purchase time
+    expiryTime.setDate(purchaseTime.getDate() + duration);
 
     const { data: newPackage, error: purchaseError } = await supabase
       .from('quota_packages')

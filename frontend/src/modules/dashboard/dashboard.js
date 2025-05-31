@@ -56,8 +56,6 @@ const isOverdue = (dateString) => {
   return date < today;
 };
 
-// --- Data Fetching Functions ---
-
 // Fetches data from 'task' table for active tasks, quota etc.
 async function fetchDashboardDataForUser(userId) {
   if (!userId) {

@@ -32,9 +32,7 @@ async function fetchUserProfile(supabase) { // Pass supabase instance if not glo
   }
   
   console.log("Fetched user profile:", profile);
-  // Ensure the returned object has a structure that includes email and user_metadata for the avatar
-  // If 'profile' doesn't directly contain email or avatar_url, merge with authUser
-  return { ...authUser, ...profile }; // Spread authUser first, then profile to override if fields exist in both
+  return { ...authUser, ...profile }; 
 }
 
 const MenuIcon = ({ className = "w-6 h-6" }) => (
