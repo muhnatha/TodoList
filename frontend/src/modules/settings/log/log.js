@@ -127,7 +127,7 @@ export default function SettingsBillingPage() {
         </nav>
       </div>
 
-      <div className="pl-16 w-full">
+      <div className="pl-5 sm:pl-16 w-full">
         <table className="w-full text-left table-fixed">
           <thead> 
             <tr className="border-b-2">

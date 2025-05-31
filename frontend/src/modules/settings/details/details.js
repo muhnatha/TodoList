@@ -235,11 +235,11 @@ export default function SettingsDetailsPage() {
                 </h1>
             </div>
 
-            <div className="flex space-x-3">
-                <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md">
+            <div className="flex gap-3">
+                <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md hidden sm:block">
                 Cancel
                 </Link>
-                <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md">
+                <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md hidden sm:block">
                 Save
                 </button>
             </div>
@@ -349,42 +349,51 @@ export default function SettingsDetailsPage() {
                 </div>
             </div>
         </div>
-      </form>
-      <div className="pl-6 min-[636px]:pl-15 pb-5">
-        <div className="border-1 rounded-lg w-2/3 md:w-1/2 text-[#232360]">
-            <p className="px-5 pt-5">Your package</p>
-            { taskCount <= 5 && notesCount <= 3 ? (
-                <div className="flex flex-row justify-between items-center px-5 ">
-                    <h1 className="font-bold text-3xl md:text-4xl">Free</h1>
-                    <Image src="/toogas2.svg" alt="Toogas" width={96} height={96}/>
-                </div>
-            ) : taskCount > 5 || notesCount > 3 ? (
-                <div className="flex flex-row justify-between items-center px-5 ">
-                    <div className="flex flex-col gap-1">
-                        <h1 className="font-bold text-3xl md:text-4xl">Quota</h1>
-                        <p className="text-sm">To-do: {taskCount} | Notes: {notesCount}</p>
+
+        <div className="pl-6 min-[636px]:pl-15 pb-5">
+            <div className="border-1 rounded-lg w-2/3 md:w-1/2 text-[#232360]">
+                <p className="px-5 pt-5">Your package</p>
+                { taskCount <= 5 && notesCount <= 3 ? (
+                    <div className="flex flex-row justify-between items-center px-5 ">
+                        <h1 className="font-bold text-3xl md:text-4xl">Free</h1>
+                        <Image src="/toogas2.svg" alt="Toogas" width={96} height={96}/>
                     </div>
-                    <Image src="/toogas2.svg" alt="Toogas" width={96} height={96}/>
+                ) : taskCount > 5 || notesCount > 3 ? (
+                    <div className="flex flex-row justify-between items-center px-5 ">
+                        <div className="flex flex-col gap-1">
+                            <h1 className="font-bold text-3xl md:text-4xl">Quota</h1>
+                            <p className="text-sm">To-do: {taskCount} | Notes: {notesCount}</p>
+                        </div>
+                        <Image src="/toogas2.svg" alt="Toogas" width={96} height={96}/>
+                    </div>
+                ) : (
+                    <div className="flex flex-row justify-between items-center px-5 ">
+                        <h1 className="font-bold text-3xl md:text-4xl">Free</h1>
+                        <Image src="/toogas2.svg" alt="Toogas" width={96} height={96}/>
+                    </div>
+                )}
+                    
+                <div className="flex flex-row gap-1">
+                    <p className="opacity-50 pl-5 pb-5 text-sm">Choose another package!</p> 
+                    <a href="/settings/billing" className="opacity-100 text-sm hover:underline">Click Here!</a>
                 </div>
-            ) : (
-                <div className="flex flex-row justify-between items-center px-5 ">
-                    <h1 className="font-bold text-3xl md:text-4xl">Free</h1>
-                    <Image src="/toogas2.svg" alt="Toogas" width={96} height={96}/>
-                </div>
-            )}
-                
-            <div className="flex flex-row gap-1">
-                <p className="opacity-50 pl-5 pb-5 text-sm">Choose another package!</p> 
-                <a href="/settings/billing" className="opacity-100 text-sm hover:underline">Click Here!</a>
             </div>
         </div>
-      </div>
-      <div className="md:absolute md:bottom-0 md:right-0 md:pr-6 pb-5 pl-6 min-[636px]:pl-15 md:pl-0">
-        <button onClick={handleLogOut} className="bg-[#F54D4D] rounded-sm px-4 py-2 text-white font-semibold text-sm flex flex-row gap-10 justify-between items-center hover:cursor-pointer hover:bg-[rgb(245,10,10)]">
-            Logout
-            <LogOut className="text-white text-sm"/>
-        </button>
-      </div>
+        <div className="flex gap-3 px-6 pb-5">
+            <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md block sm:hidden">
+            Cancel
+            </Link>
+            <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md block sm:hidden">
+            Save
+            </button>
+        </div>
+        <div className="md:absolute md:bottom-0 md:right-0 md:pr-6 pb-5 pl-6 min-[636px]:pl-15 md:pl-0">
+            <button onClick={handleLogOut} className="bg-[#F54D4D] rounded-sm px-4 py-2 text-white font-semibold text-sm flex flex-row gap-10 justify-between items-center hover:cursor-pointer hover:bg-[rgb(245,10,10)]">
+                Logout
+                <LogOut className="text-white text-sm"/>
+            </button>
+        </div>
+        </form>
     </PageLayout>
   );
 }

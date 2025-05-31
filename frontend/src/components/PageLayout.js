@@ -10,7 +10,7 @@ export default function PageLayout({ title, children }) {
             <Sidebar />
         </div>
         <div className='flex flex-col overflow-y-auto flex-1'>
-            <header className={`sticky top-0 z-10 w-full ${title.toLowerCase() === 'dashboard' ? 'bg-white' : 'bg-[#FBFAFF]'} p-6`}>
+            <header className={`sticky top-0 z-10 w-full p-3 ${title.toLowerCase() === 'dashboard' ? 'bg-white' : 'bg-[#FBFAFF]'}`}>
                 <Header title={title} supabase={supabase} />
             </header>
             <main className="flex-1 p-6">

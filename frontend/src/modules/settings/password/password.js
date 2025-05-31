@@ -179,10 +179,10 @@ export default function SettingsPasswordPage() {
             </div>
 
             <div className="flex space-x-3">
-                <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md">
+                <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md hidden sm:block">
                 Cancel
                 </Link>
-                <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md">
+                <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-4 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md hidden sm:block">
                 Save
                 </button>
             </div>
@@ -206,7 +206,7 @@ export default function SettingsPasswordPage() {
             <div className="flex flex-col gap-5">
                 <div className="flex flex-col">
                     <label className="text-[#232360]">Old Password</label>
-                    <div className="flex flex-row relative w-2/5 md:w-1/3 [@media(min-width:890px)]:w-1/4">
+                    <div className="flex flex-row relative sm:w-2/5 md:w-1/3 [@media(min-width:890px)]:w-1/4">
                         <input 
                         type={showOldPassword ? 'text' : 'password'} 
                         id='oldPass' 
@@ -228,8 +228,8 @@ export default function SettingsPasswordPage() {
                         </button>
                     </div>
                 </div>
-                <div className="flex flex-row gap-10">
-                    <div className="flex flex-col w-2/5 md:w-1/3 [@media(min-width:890px)]:w-1/4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:gap-10">
+                    <div className="flex flex-col sm:w-2/5 md:w-1/3 [@media(min-width:890px)]:w-1/4">
                         <label className="text-[#232360]">New Password</label>
                         <div className="flex flex-row relative">
                             <input 
@@ -253,7 +253,7 @@ export default function SettingsPasswordPage() {
                             </button>
                         </div>
                     </div>
-                    <div className="flex flex-col w-2/5 md:w-1/3 [@media(min-width:890px)]:w-1/4">
+                    <div className="flex flex-col sm:w-2/5 md:w-1/3 [@media(min-width:890px)]:w-1/4">
                         <label className="text-[#232360]">Confirm New Password</label>
                         <div className="flex flex-row relative">
                             <input 
@@ -279,6 +279,14 @@ export default function SettingsPasswordPage() {
                     </div>
                 </div>
             </div>
+            <div className="flex gap-3 pt-5">
+              <Link href='/settings' className="border-3 rounded-lg bg-white py-2 px-4 hover:cursor-pointer font-semibold hover:bg-gray-200 transition-colors text-sm sm:text-md block sm:hidden">
+              Cancel
+              </Link>
+              <button onClick={handleSave} className="rounded-lg bg-[#5051F9] py-2 px-7 hover:cursor-pointer font-semibold text-white hover:bg-indigo-700 transition-colors text-sm sm:text-md block sm:hidden">
+              Save
+              </button>
+          </div>
         </div>
       </form>
     </PageLayout>

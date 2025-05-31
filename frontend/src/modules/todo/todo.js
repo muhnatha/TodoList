@@ -64,11 +64,10 @@ async function fetchTasks(userId) {
 }
 
 async function updateUserQuotaAndHandleExpiryForTodos(userId, setTaskCountQuotaHook, setIsLoadingQuotaHook) {
-  // ... (implementation remains the same as in your provided code)
   if (!userId) {
     setIsLoadingQuotaHook(false);
     setTaskCountQuotaHook(FREE_TODOS_QUOTA_BASE);
-    console.error("User ID not provided to updateUserQuotaAndHandleExpiryForTodos");
+    console.error("User ID not provided");
     return FREE_TODOS_QUOTA_BASE;
   }
   setIsLoadingQuotaHook(true);
@@ -198,7 +197,6 @@ export default function TodoPage() {
         } else if (event === "TOKEN_REFRESHED" && session?.user) {
           console.log("TodoPage: Token refreshed for user:", session.user.id, "Checking quota.");
           if (session.user.id === currentUserIdRef.current) {
-            // const previousIsLoadingQuota = isLoadingQuota; // Removed as per your code
             await updateUserQuotaAndHandleExpiryForTodos(session.user.id, setTaskCountQuota, setIsLoadingQuota);
           }
         }
@@ -209,7 +207,6 @@ export default function TodoPage() {
       subscription?.unsubscribe();
     };
   }, []);
-
 
   async function updateTaskStatus(taskId, newStatus = 'completed') {
     const originalTasks = [...tasks];
@@ -248,12 +245,6 @@ export default function TodoPage() {
             const currentTotalCount = taskLogData?.completed_task_count || 0;
             const newTotalCount = currentTotalCount + 1;
 
-            // Upsert logic for task_completion_log:
-            // This assumes 'user_id' is a unique key or PK in task_completion_log for this to work as an upsert.
-            // If not, you might update a specific row or always insert.
-            // The existing code attempts an update; if it fails (e.g. no row), it might silently not update.
-            // A true upsert or explicit insert/update logic based on existence is more robust.
-            // For now, matching existing logic:
             const { error: updateTotalCountError } = await supabase
               .from('task_completion_log')
               .update({ completed_task_count: newTotalCount, updated_at: new Date().toISOString() }) // Also update 'updated_at'
@@ -281,10 +272,7 @@ export default function TodoPage() {
         } catch (e) {
           console.error('Exception during task_completion_log update logic:', e.message);
         }
-        // --- END: Logic to update task_completion_log ---
 
-
-        // --- START: Auto insert/update for daily_task_completion_summary ---
         try {
           const todayDateString = toYYYYMMDD(new Date());
 
@@ -311,14 +299,12 @@ export default function TodoPage() {
               console.log(`Daily task summary updated for ${userId} on ${todayDateString}. Tasks today: ${newDailyCount}`);
             }
           } else {
-            // No entry for today, insert a new one
             const { error: insertDailyError } = await supabase
               .from('daily_task_completion_summary')
               .insert({
                 user_id: userId,
                 completion_date: todayDateString,
                 tasks_completed_today: 1
-                // created_at and updated_at should use database defaults if configured
               });
 
             if (insertDailyError) {
@@ -330,7 +316,6 @@ export default function TodoPage() {
         } catch (e) {
           console.error('Exception during daily_task_completion_summary update logic:', e.message);
         }
-        // --- END: Auto insert/update for daily_task_completion_summary ---
 
       } else { // End if(userId)
         console.warn("User ID not available. Cannot update completion logs.");

@@ -1,11 +1,41 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { LayoutGrid, Calendar, NotebookIcon, ListTodoIcon, Settings } from 'lucide-react';
-import { usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';import { supabase } from '@/lib/supabaseClient'; // Adjust path as necessary
 
-// SVG Icon Components (Example Icons)
-// You can replace these with your preferred SVG icons or a lightweight icon library
+async function fetchUserProfile(supabase) { // Pass supabase instance if not globally available
+  // Get the currently authenticated user
+  const { data: { user: authUser }, error: userError } = await supabase.auth.getUser(); // Renamed to authUser to avoid confusion
+  if (userError || !authUser) {
+    console.error("Error fetching user or no user logged in:", userError?.message || "No user session");
+    return null;
+  }
+
+  // Fetch the profile for this user
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', authUser.id)
+    .single();
+
+  if (profileError) {
+    if (profileError.code !== 'PGRST116') {
+      console.error("Error fetching profile:", profileError.message);
+    } else {
+      console.log("No profile found for user ID:", authUser.id);
+    }
+    // Return the authUser data even if profile is not found,
+    // so we can still display email/fallback avatar
+    return { id: authUser.id, email: authUser.email, user_metadata: authUser.user_metadata };
+  }
+  
+  console.log("Fetched user profile:", profile);
+  // Ensure the returned object has a structure that includes email and user_metadata for the avatar
+  // If 'profile' doesn't directly contain email or avatar_url, merge with authUser
+  return { ...authUser, ...profile }; // Spread authUser first, then profile to override if fields exist in both
+}
 
 const MenuIcon = ({ className = "w-6 h-6" }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -21,6 +51,26 @@ const Sidebar = () => {
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     // State to manage dropdown visibility (example)
     const [isPagesDropdownOpen, setIsPagesDropdownOpen] = useState(false);
+
+    // State for user profile in Sidebar
+    const [userProfile, setUserProfile] = useState(null);
+    const [loadingProfile, setLoadingProfile] = useState(true);
+
+    useEffect(() => {
+        async function loadProfile() {
+            // Check if supabase client is available (it's directly imported)
+            if (!supabase) {
+                console.error("Supabase client is not available in Sidebar component.");
+                setLoadingProfile(false);
+                return;
+            }
+            setLoadingProfile(true);
+            const profile = await fetchUserProfile(supabase); // Use the imported supabase client
+            setUserProfile(profile);
+            setLoadingProfile(false);
+        }
+        loadProfile();
+    }, []);
 
     const toggleMobileSidebar = () => {
         setIsMobileSidebarOpen(!isMobileSidebarOpen);
@@ -45,35 +95,53 @@ const Sidebar = () => {
         { href: "/settings/log" }
     ]
 
-   const renderNavItem = (item, index) => {
-    let isActive = false; // Variable to determine if the nav item is active
+    const renderNavItem = (item, index) => {
+        let isActive = false; // Variable to determine if the nav item is active
 
-    if (item.href === '/settings') {
-        // Special logic for the "Settings" nav item
-        isActive = pathName === item.href || // Active if path is exactly "/settings"
-                   (navSettings && navSettings.some(settingRoute => pathName === settingRoute.href)); // Or active if path matches any href in navSettings
-    } else {
-        // Standard logic for all other nav items
-        isActive = pathName === item.href; // Active if path is an exact match
-    }
+        if (item.href === '/settings') {
+            // Special logic for the "Settings" nav item
+            isActive = pathName === item.href || // Active if path is exactly "/settings"
+                    (navSettings && navSettings.some(settingRoute => pathName === settingRoute.href)); // Or active if path matches any href in navSettings
+        } else {
+            // Standard logic for all other nav items
+            isActive = pathName === item.href; // Active if path is an exact match
+        }
+        
+        return (
+            <li key={index}>
+                <a
+                    href={item.href}
+                    className={`flex items-center mb-3 space-x-3 px-2 py-2 text-sm font-medium rounded-md transition-colors duration-150 group
+                        ${isActive 
+                            ? 'bg-[#5051F9] text-white' // Active state styles
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-[#5051F9] dark:hover:bg-white hover:text-white' // Inactive state styles
+                        }
+                    `}
+                >
+                    {item.icon} {/* Ensure item.icon is a valid JSX element e.g. <IconComponent /> */}
+                    {/* You might also want to render a label, e.g., item.label */}
+                </a>
+            </li>
+        );
+    };
     
-    return (
-        <li key={index}>
-            <a
-                href={item.href}
-                className={`flex items-center mb-3 space-x-3 px-2 py-2 text-sm font-medium rounded-md transition-colors duration-150 group
-                    ${isActive 
-                        ? 'bg-[#5051F9] text-white' // Active state styles
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-[#5051F9] dark:hover:bg-white hover:text-white' // Inactive state styles
-                    }
-                `}
-            >
-                {item.icon} {/* Ensure item.icon is a valid JSX element e.g. <IconComponent /> */}
-                {/* You might also want to render a label, e.g., item.label */}
-            </a>
-        </li>
-    );
-};
+    let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`;
+    let avatarFallback = 'U';
+    let userNameOrEmail = 'User';
+
+    if (userProfile) {
+        const emailForAvatar = userProfile.email || 'User';
+        userNameOrEmail = userProfile.full_name || userProfile.email || 'User'; // For display text
+        avatarSrc = userProfile.avatar_url || 
+                    userProfile.user_metadata?.avatar_url ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(emailForAvatar)}&background=random`;
+        
+        if (emailForAvatar && emailForAvatar.includes('@')) {
+            avatarFallback = emailForAvatar.substring(0, 2).toUpperCase();
+        } else if (emailForAvatar) {
+            avatarFallback = emailForAvatar.substring(0, 1).toUpperCase();
+        }
+    }
 
     return (
         <>
@@ -134,20 +202,14 @@ const Sidebar = () => {
                 </nav>
 
                 {/* Sidebar Footer (Optional) */}
-                {/* <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center space-x-3"> */}
-                        {/* User Avatar Placeholder */}
-                        {/* <div className="w-10 h-10 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-slate-700 dark:text-slate-200 font-semibold">
-                            JD
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">John Doe</p>
-                            <a href="#" className="text-xs text-slate-500 dark:text-slate-400 hover:underline">
-                                View profile
-                            </a>
-                        </div>
-                    </div>
-                </div> */}
+                <div className="flex justify-center items-end py-4 h-full">
+                    <a href='/settings/details'>
+                        <Avatar className={"w-10 h-10 block sm:hidden"}>
+                            <AvatarImage src={avatarSrc} />
+                            <AvatarFallback>{avatarFallback}</AvatarFallback>
+                        </Avatar>
+                    </a>
+                </div>
             </aside>
         </>
     );

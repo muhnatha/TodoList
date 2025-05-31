@@ -103,10 +103,10 @@ export default function Header({ title, supabase }) { // Pass supabase as a prop
                 </div>
             )}
             <div className={`flex items-center -my-2 justify-center text-[#232360] relative ${title.toLowerCase() === 'dashboard' ? 'bg-white' : 'bg-[#FBFAFF]'}`}>
-                <h1 className='text-2xl font-semibold py-4'>{title}</h1>
+                <h1 className='text-lg sm:text-xl md:text-2xl font-semibold py-4'>{title}</h1>
                 <div className="absolute top-0 right-0 h-full flex items-center mx-7 gap-1">
                     <button
-                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        className="p-2 pr-0 sm:pr-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
                         onClick={() => setShowNotification(!showNotification)}>
                         <Bell className='size-7 hover:cursor-pointer text-[#768396] dark:text-gray-400 pt-0.5' />
                     </button>
@@ -115,10 +115,12 @@ export default function Header({ title, supabase }) { // Pass supabase as a prop
                             <AvatarFallback>...</AvatarFallback> {/* Show loading indicator */}
                         </Avatar>
                     ) : (
-                        <Avatar className={"w-10 h-10"}>
-                            <AvatarImage src={avatarSrc} />
-                            <AvatarFallback>{avatarFallback}</AvatarFallback>
-                        </Avatar>
+                        <a href='/settings/details' className='hover:cursor-pointer'>
+                            <Avatar className={"w-10 h-10 hidden sm:block"}>
+                                <AvatarImage src={avatarSrc} />
+                                <AvatarFallback>{avatarFallback}</AvatarFallback>
+                            </Avatar>
+                        </a>
                     )}
                 </div>
             </div>
