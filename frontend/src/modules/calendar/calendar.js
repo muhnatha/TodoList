@@ -114,7 +114,7 @@ export default function CalendarPage() {
   return (
     <PageLayout title="CALENDAR">
       <div className="flex flex-col items-center justify-center mb-2 min-[994px]:justify-start min-[994px]:items-start min-[994px]:mb-0 min-[994px]:flex-row w-full">
-        <div className="flex flex-col gap-2 text-center">
+        <div className="flex flex-col gap-2 text-center mb-5">
           <ShadCalendar
             mode="single"
             selected={selectedDate}
@@ -132,7 +132,7 @@ export default function CalendarPage() {
             }}
           />
         </div>
-        <div className="border-t-2 pt-2 min-[994px]:border-t-0 min-[994px]:pl-4 min-[994px]:pt-0 min-[994px]:border-l-1 w-full h-screen">
+        <div className="pt-2 min-[994px]:border-t-0 min-[994px]:pl-4 min-[994px]:pt-0 min-[994px]:border-l-1 w-full h-screen">
           {isLoading ? (
             <div>Loading tasks...</div>
           ) : (

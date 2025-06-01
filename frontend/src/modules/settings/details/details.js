@@ -205,7 +205,7 @@ export default function SettingsDetailsPage() {
 
   return (
     <PageLayout title="SETTINGS">
-      <div className="w-full h-2/5 relative">
+      <div className="w-full h-[240px] relative">
         <Image 
           src="/bg-settings.svg"
           alt="Background Settings" 

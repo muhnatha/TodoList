@@ -152,7 +152,8 @@ export default function SettingsBillingPage() {
     setIsLoading(true);
     const purchaseTime = new Date();
     const expiryTime = new Date(purchaseTime.getTime());
-    expiryTime.setDate(purchaseTime.getDate() + 30);
+    const duration = 2;
+    expiryTime.setMinutes(purchaseTime.getMinutes() + duration);
 
     const { data: newPackage, error: purchaseError } = await supabase
       .from('quota_packages')
@@ -185,7 +186,7 @@ export default function SettingsBillingPage() {
       if (logError) {
         console.error('Error logging billing purchase activity:', logError.message);
       }
-      alert(`Successfully added ${itemsToAdd} ${packageType === 'notes' ? 'Notes' : 'To-Do items'} to your quota! The package will expire in 30 days.`);
+      alert(`Successfully added ${itemsToAdd} ${packageType === 'notes' ? 'Notes' : 'To-Do items'} to your quota! The package will expire in ${duration} days.`);
     }
     setIsLoading(false);
   }
@@ -258,7 +259,7 @@ export default function SettingsBillingPage() {
 
   return (
     <PageLayout title="SETTINGS">
-      <div className="w-full h-2/5 relative">
+      <div className="w-full h-[240px] relative">
         <Image
           src="/bg-settings.svg"
           alt="Background Settings"
