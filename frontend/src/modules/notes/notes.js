@@ -70,7 +70,6 @@ async function updateUserQuotaAndHandleExpiryForNotes(userId, setNotesCountQuota
   }
 }
 
-
 export default function NotesPage() {
   const [notes, setNotes] = useState([]);
   const [editing, setEditing] = useState(false);
@@ -380,49 +379,59 @@ export default function NotesPage() {
     setNoteIdToDelete(null);
   };
 
-  const handleDownloadPDF = (note) => {
+  const handleDownloadPDF = async (note) => {
     if (!note) return;
     if (typeof window.jspdf === 'undefined') {
-        alert('PDF library is not loaded yet. Please try again in a moment.');
-        return;
+      alert('PDF library is not loaded yet. Please try again in a moment.');
+      return;
     }
 
     const doc = new window.jspdf.jsPDF();
     const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
     const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
     
-    const margin = 20; // Page margin
+    const margin = 20;
     const maxLineWidth = pageWidth - margin * 2;
-    let currentY = margin; // Start Y position for text
+    let currentY = margin;
 
-    // Title
     doc.setFontSize(18);
     doc.text(note.title || "Untitled", margin, currentY);
-    currentY += 10; // Move Y down
+    currentY += 10;
 
-    // Date
     doc.setFontSize(12);
     doc.text(new Date(note.date || note.created_at).toLocaleDateString() || "No date", margin, currentY);
-    currentY += 10; // Move Y down for content
+    currentY += 10;
 
-    doc.setFontSize(12); 
+    doc.setFontSize(12);
     const noteContent = note.content || "No content.";
-    
-    const contentToPrint = noteContent; 
-
+    const contentToPrint = noteContent;
 
     const lines = doc.splitTextToSize(contentToPrint, maxLineWidth);
     
     lines.forEach(line => {
-        if (currentY + 10 > pageHeight - margin) { // Check if new page is needed (10 is approx line height)
-            doc.addPage();
-            currentY = margin; // Reset Y for new page
-        }
-        doc.text(line, margin, currentY);
-        currentY += 7; // Increment Y for next line (adjust line spacing as needed)
+      if (currentY + 10 > pageHeight - margin) {
+        doc.addPage();
+        currentY = margin;
+      }
+      doc.text(line, margin, currentY);
+      currentY += 7;
     });
 
     doc.save(`${note.title || "note"}-${new Date().toISOString().split('T')[0]}.pdf`);
+
+    // Log aktivitas: Note didownload sebagai PDF
+    if (user) {
+      const { error: logError } = await supabase
+        .from('activity_log')
+        .insert({
+          user_id: user.id,
+          page: 'Notes',
+          action: 'Downloaded',
+          details: `Downloaded note "${note.title || 'Untitled'}" as PDF`,
+          created_at: new Date().toISOString()
+        });
+      if (logError) console.error("Error logging note download activity:", logError.message);
+    }
   };
   
   const handleInputChange = (e) => {
