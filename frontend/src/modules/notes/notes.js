@@ -233,7 +233,7 @@ export default function NotesPage() {
       alert("Judul atau isi catatan tidak boleh kosong.");
       return;
     }
-
+  
     if (!currentNote.id) {
       if (notes.length >= notesCountQuota && notesCountQuota > 0) {
         alert(`Batas ${notesCountQuota} catatan tercapai. Tidak dapat menyimpan catatan baru.`);
@@ -253,8 +253,8 @@ export default function NotesPage() {
         return;
       }
     }
-
-    setIsLoading(true); // Loading for save process
+  
+    setIsLoading(true);
     let error;
     const noteData = {
       user_id: user.id,
@@ -262,7 +262,7 @@ export default function NotesPage() {
       content: currentNote.content,
       date: currentNote.date,
     };
-
+  
     if (currentNote.id) {
       const { error: updateError } = await supabase
         .from("notes")
@@ -270,25 +270,52 @@ export default function NotesPage() {
         .eq("id", currentNote.id)
         .eq("user_id", user.id);
       error = updateError;
+  
+      if (!error) {
+        // Log aktivitas: Note diperbarui
+        const { error: logError } = await supabase
+          .from('activity_log')
+          .insert({
+            user_id: user.id,
+            page: 'Notes',
+            action: 'Updated',
+            details: `Updated note "${currentNote.title || 'Untitled'}"`,
+            created_at: new Date().toISOString()
+          });
+        if (logError) console.error("Error logging note update activity:", logError.message);
+      }
     } else {
       const { error: insertError } = await supabase
         .from("notes")
         .insert(noteData)
         .select();
       error = insertError;
+  
+      if (!error) {
+        // Log aktivitas: Note baru dibuat
+        const { error: logError } = await supabase
+          .from('activity_log')
+          .insert({
+            user_id: user.id,
+            page: 'Notes',
+            action: 'Created',
+            details: `Created new note "${currentNote.title || 'Untitled'}"`,
+            created_at: new Date().toISOString()
+          });
+        if (logError) console.error("Error logging note creation activity:", logError.message);
+      }
     }
-
+  
     if (error) {
       console.error("Error saving note:", error.message);
       alert("Error saving note: " + error.message);
     } else {
-      // Re-fetch notes and update quota (which also sets its own loading)
       const currentQuota = await updateUserQuotaAndHandleExpiryForNotes(user.id, setNotesCountQuota, setIsLoadingQuota);
-      await fetchUserNotes(user.id); // Pass currentQuota if fetchUserNotes needs it for display slicing
+      await fetchUserNotes(user.id);
       setEditing(false);
       setCurrentNote({ id: null, title: "", content: "", date: "" });
     }
-    setIsLoading(false); // Done loading save process
+    setIsLoading(false);
   };
 
   const handleNewNote = () => {
@@ -312,23 +339,40 @@ export default function NotesPage() {
 
   const confirmDelete = async () => {
     if (!user || !noteIdToDelete) return;
-    setIsLoading(true); // Loading for delete process
+    setIsLoading(true);
+  
+    // Dapatkan judul catatan yang akan dihapus
+    const noteToDelete = notes.find(note => note.id === noteIdToDelete);
+    const noteTitle = noteToDelete ? noteToDelete.title || 'Untitled' : 'Unknown';
+  
     const { error } = await supabase
       .from("notes")
       .delete()
       .eq("id", noteIdToDelete)
       .eq("user_id", user.id);
-
+  
     if (error) {
       console.error("Error deleting note:", error.message);
       alert("Error deleting note: " + error.message);
     } else {
+      // Log aktivitas: Note dihapus
+      const { error: logError } = await supabase
+        .from('activity_log')
+        .insert({
+          user_id: user.id,
+          page: 'Notes',
+          action: 'Deleted',
+          details: `Deleted note "${noteTitle}"`,
+          created_at: new Date().toISOString()
+        });
+      if (logError) console.error("Error logging note deletion activity:", logError.message);
+  
       const currentQuota = await updateUserQuotaAndHandleExpiryForNotes(user.id, setNotesCountQuota, setIsLoadingQuota);
       await fetchUserNotes(user.id);
     }
     setShowConfirmDelete(false);
     setNoteIdToDelete(null);
-    setIsLoading(false); // Done loading delete process
+    setIsLoading(false);
   };
 
   const cancelDelete = () => {

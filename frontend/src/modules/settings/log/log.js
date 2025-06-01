@@ -2,7 +2,7 @@
 import PageLayout from "@/components/PageLayout"
 import Image from "next/image"
 import { useState, useEffect } from "react"
-import { PencilIcon } from "lucide-react"
+import { PencilIcon, RefreshCw } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { usePathname } from 'next/navigation'
 import Link from "next/link"
@@ -33,21 +33,82 @@ async function fetchUserProfile() {
   }
   
   console.log("Fetched user profile:", profile);
-  return profile; // Returns the profile object or null
+  return { ...profile, userId: user.id }; // Include user ID for activity logs
 }
 
-export default function SettingsBillingPage() {
+// Fetch activity logs for the user
+async function fetchActivityLogs(userId, limit = 50, offset = 0) {
+  try {
+    const { data: logs, error } = await supabase
+      .from('activity_log')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error("Error fetching activity logs:", error.message);
+      return { data: [], error };
+    }
+    
+    return { data: logs || [], error: null };
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    return { data: [], error: err };
+  }
+}
+
+// Utility function to format date for display
+function formatActivityDate(dateString) {
+  const date = new Date(dateString);
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  
+  const dayName = days[date.getDay()];
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear().toString().slice(-2);
+  
+  return `${dayName}, ${day}/${month}/${year}`;
+}
+
+function formatActivityTime(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleTimeString('id-ID', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: false 
+  });
+}
+
+export default function SettingsLogPage() {
   const pathname = usePathname();
   const [userProfile, setUserProfile] = useState(null);
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
       const profile = await fetchUserProfile();
       setUserProfile(profile);
+      
+      if (profile && profile.userId) {
+        const { data: logs } = await fetchActivityLogs(profile.userId);
+        setActivityLogs(logs);
+      }
+      setLoading(false);
     }
     loadProfile();
   }, []);
 
+  const handleRefresh = async () => {
+    if (!userProfile || !userProfile.userId) return;
+    
+    setRefreshing(true);
+    const { data: logs } = await fetchActivityLogs(userProfile.userId);
+    setActivityLogs(logs);
+    setRefreshing(false);
+  };
 
   let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; // Default
   let avatarFallback = 'U';
@@ -127,26 +188,67 @@ export default function SettingsBillingPage() {
         </nav>
       </div>
 
-      <div className="pl-5 sm:pl-16 w-full">
-        <table className="w-full text-left table-fixed">
-          <thead> 
-            <tr className="border-b-2">
-              <th>Time</th>
-              <th>Page</th>
-              <th>Activity</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Day, dd/mm/yy</td>
-              <td>Note</td>
-              <td>Title Name</td>
-              <td>Cloud Computing {'>'} Cloud Computinggg</td>
-            </tr>
-            {/*Ini nanti buat log activity dari session*/}
-          </tbody>
-        </table>
+      {/* Activity Log Section */}
+      <div className="pl-5 sm:pl-16 w-full pr-5 sm:pr-16">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-[#232360]">Recent Activity</h2>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing || loading}
+            className="flex items-center gap-2 px-3 py-1 text-sm bg-[#232360] text-white rounded hover:bg-opacity-90 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Loading activity logs...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left table-fixed border-collapse">
+              <thead> 
+                <tr className="border-b-2 border-gray-300">
+                  <th className="w-1/6 py-3 px-2 font-semibold text-[#232360]">Time</th>
+                  <th className="w-1/6 py-3 px-2 font-semibold text-[#232360]">Page</th>
+                  <th className="w-1/6 py-3 px-2 font-semibold text-[#232360]">Activity</th>
+                  <th className="w-1/2 py-3 px-2 font-semibold text-[#232360]">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activityLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="text-center py-8 text-gray-500">
+                      No activity logs found
+                    </td>
+                  </tr>
+                ) : (
+                  activityLogs.map((log, index) => (
+                    <tr key={log.id} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-100`}>
+                      <td className="py-3 px-2 text-sm">
+                        <div>{formatActivityDate(log.created_at)}</div>
+                        <div className="text-xs text-gray-500">{formatActivityTime(log.created_at)}</div>
+                      </td>
+                      <td className="py-3 px-2 text-sm font-medium">{log.page}</td>
+                      <td className="py-3 px-2 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          log.action === 'Created' ? 'bg-green-100 text-green-800' :
+                          log.action === 'Updated' ? 'bg-blue-100 text-blue-800' :
+                          log.action === 'Deleted' ? 'bg-red-100 text-red-800' :
+                          log.action === 'Visited' ? 'bg-purple-100 text-purple-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2 text-sm text-gray-700 break-words">{log.details}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </PageLayout>
   );

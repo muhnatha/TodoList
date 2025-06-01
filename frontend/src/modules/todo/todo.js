@@ -1,4 +1,3 @@
-// todo.js
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
 import PageLayout from "@/components/PageLayout"
@@ -22,7 +21,7 @@ const initialActionState = {
 // Helper to format date to YYYY-MM-DD string
 const toYYYYMMDD = (date) => {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
@@ -107,6 +106,11 @@ async function updateUserQuotaAndHandleExpiryForTodos(userId, setTaskCountQuotaH
   return currentTotalTodosQuota;
 }
 
+async function syncTasks(userId) {
+  const fetchedTasks = await fetchTasks(userId);
+  return fetchedTasks;
+}
+
 export default function TodoPage() {
   const [actionState, formAction, isPending] = useActionState(addTask, initialActionState);
   const [showForm, setShowForm] = useState(false);
@@ -119,7 +123,6 @@ export default function TodoPage() {
   const currentUserIdRef = useRef(null);
 
   useEffect(() => {
-    // ... (implementation remains the same as in your provided code)
     const initializePage = async (sessionUser) => {
       if (isInitializingRef.current) {
         console.log("TodoPage: Initialization already in progress. Skipping.");
@@ -208,6 +211,42 @@ export default function TodoPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (actionState.success && actionState.task) {
+      setTasks(prevTasks => {
+        const existingTaskIndex = prevTasks.findIndex(t => t.id === actionState.task.id);
+        let newTasks;
+        if (existingTaskIndex > -1) {
+          newTasks = [...prevTasks];
+          newTasks[existingTaskIndex] = actionState.task;
+        } else {
+          newTasks = [actionState.task, ...prevTasks];
+        }
+        return newTasks.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      });
+      setShowForm(false);
+
+      // Log aktivitas: Task baru dibuat
+      const logTaskCreation = async () => {
+        if (!currentUser) return;
+        const { error: logError } = await supabase
+          .from('activity_log')
+          .insert({
+            user_id: currentUser.id,
+            page: 'Todo',
+            action: 'Created',
+            details: `Created new task "${actionState.task.name}"`,
+            created_at: new Date().toISOString()
+          });
+        if (logError) console.error("Error logging task creation activity:", logError.message);
+      };
+      logTaskCreation();
+    } else if (!actionState.success && actionState.message && !isPending) {
+      alert(`Error: ${actionState.message}`);
+      console.error("Form action error:", actionState.message, actionState.errors);
+    }
+  }, [actionState, isPending, currentUser]);
+
   async function updateTaskStatus(taskId, newStatus = 'completed') {
     const originalTasks = [...tasks];
     setTasks(prevTasks => prevTasks.map(task =>
@@ -226,20 +265,33 @@ export default function TodoPage() {
     }
     console.log(`Task ${taskId} status updated to ${newStatus}`);
 
+    // Log aktivitas: Task status diperbarui
+    const taskToUpdate = tasks.find(t => t.id === taskId);
+    if (taskToUpdate && currentUser) {
+      const { error: logError } = await supabase
+        .from('activity_log')
+        .insert({
+          user_id: currentUser.id,
+          page: 'Todo',
+          action: 'Updated',
+          details: `Updated task "${taskToUpdate.name}" to status "${newStatus}"`,
+          created_at: new Date().toISOString()
+        });
+      if (logError) console.error("Error logging task update activity:", logError.message);
+    }
+
     if (newStatus === 'completed') {
       const userId = currentUserIdRef.current;
 
       if (userId) {
-        // --- START: Logic to update task_completion_log (from your existing code) ---
         try {
-          // Note: 'profileData' here refers to data from 'task_completion_log'
           const { data: taskLogData, error: fetchLogEntryError } = await supabase
             .from('task_completion_log')
-            .select('completed_task_count') // Assuming this table has one entry per user for a total count
+            .select('completed_task_count')
             .eq('user_id', userId)
             .single();
 
-          if (fetchLogEntryError && fetchLogEntryError.code !== 'PGRST116') { // PGRST116 means no row found
+          if (fetchLogEntryError && fetchLogEntryError.code !== 'PGRST116') {
             console.error('Error fetching task_completion_log entry:', fetchLogEntryError.message);
           } else {
             const currentTotalCount = taskLogData?.completed_task_count || 0;
@@ -247,25 +299,22 @@ export default function TodoPage() {
 
             const { error: updateTotalCountError } = await supabase
               .from('task_completion_log')
-              .update({ completed_task_count: newTotalCount, updated_at: new Date().toISOString() }) // Also update 'updated_at'
-              .eq('user_id', userId); // This updates if a row with user_id exists
+              .update({ completed_task_count: newTotalCount, updated_at: new Date().toISOString() })
+              .eq('user_id', userId);
 
             if (updateTotalCountError) {
               console.error('Error updating completed_task_count in task_completion_log:', updateTotalCountError.message);
-              // If the update failed because the row doesn't exist, you might want to insert it:
-              if (fetchLogEntryError && fetchLogEntryError.code === 'PGRST116') { // Was an insert scenario
-                  const { error: insertLogError } = await supabase
-                    .from('task_completion_log')
-                    .insert({ user_id: userId, completed_task_count: 1, updated_at: new Date().toISOString() }); // Start count at 1
-                  if (insertLogError) {
-                      console.error('Error inserting new entry into task_completion_log:', insertLogError.message);
-                  } else {
-                      console.log(`Inserted new entry in task_completion_log for user ${userId}`);
-                  }
+              if (fetchLogEntryError && fetchLogEntryError.code === 'PGRST116') {
+                const { error: insertLogError } = await supabase
+                  .from('task_completion_log')
+                  .insert({ user_id: userId, completed_task_count: 1, updated_at: new Date().toISOString() });
+                if (insertLogError) {
+                  console.error('Error inserting new entry into task_completion_log:', insertLogError.message);
+                } else {
+                  console.log(`Inserted new entry in task_completion_log for user ${userId}`);
+                }
               }
             } else {
-              // Check if any row was actually updated
-              // const { count } = await supabase.from('task_completion_log').select('*', { count: 'exact', head: true }).eq('user_id', userId); (Optional check)
               console.log(`Updated completed_task_count in task_completion_log for user ${userId} to ${newTotalCount}`);
             }
           }
@@ -278,20 +327,19 @@ export default function TodoPage() {
 
           const { data: existingSummary, error: fetchDailyError } = await supabase
             .from('daily_task_completion_summary')
-            .select('id, tasks_completed_today') // Select 'id' for updating specific row
+            .select('id, tasks_completed_today')
             .eq('user_id', userId)
             .eq('completion_date', todayDateString)
-            .single(); // Expect one or zero rows
+            .single();
 
-          if (fetchDailyError && fetchDailyError.code !== 'PGRST116') { // PGRST116 means 0 rows, which is fine
+          if (fetchDailyError && fetchDailyError.code !== 'PGRST116') {
             console.error('Error fetching daily task summary:', fetchDailyError.message);
           } else if (existingSummary) {
-            // Entry for today exists, update it
             const newDailyCount = (existingSummary.tasks_completed_today || 0) + 1;
             const { error: updateDailyError } = await supabase
               .from('daily_task_completion_summary')
               .update({ tasks_completed_today: newDailyCount, updated_at: new Date().toISOString() })
-              .eq('id', existingSummary.id); // Update by specific row ID
+              .eq('id', existingSummary.id);
 
             if (updateDailyError) {
               console.error('Error updating daily task summary:', updateDailyError.message);
@@ -316,33 +364,68 @@ export default function TodoPage() {
         } catch (e) {
           console.error('Exception during daily_task_completion_summary update logic:', e.message);
         }
-
-      } else { // End if(userId)
+      } else {
         console.warn("User ID not available. Cannot update completion logs.");
       }
-    } // End if (newStatus === 'completed')
-  } // End updateTaskStatus
+    }
+  }
 
   useEffect(() => {
-    // ... (implementation remains the same as in your provided code)
-    if (actionState.success && actionState.task) {
-      setTasks(prevTasks => {
-        const existingTaskIndex = prevTasks.findIndex(t => t.id === actionState.task.id);
-        let newTasks;
-        if (existingTaskIndex > -1) {
-          newTasks = [...prevTasks];
-          newTasks[existingTaskIndex] = actionState.task;
+    const deleteOldCompletedTasks = async () => {
+      if (!currentUser) return;
+      const cutoff = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: tasksToDelete, error: fetchError } = await supabase
+        .from('task')
+        .select('id, name')
+        .eq('status', 'completed')
+        .eq('user_id', currentUser.id)
+        .lt('completed_at', cutoff);
+
+      if (fetchError) {
+        console.error('Error fetching tasks to delete:', fetchError.message);
+        return;
+      }
+
+      if (tasksToDelete && tasksToDelete.length > 0) {
+        const taskNames = tasksToDelete.map(task => task.name).join(', ');
+        const { error, count } = await supabase
+          .from('task')
+          .delete({ count: 'exact' })
+          .eq('status', 'completed')
+          .eq('user_id', currentUser.id)
+          .lt('completed_at', cutoff);
+
+        if (error) {
+          console.error('Error auto-deleting completed tasks:', error.message);
         } else {
-          newTasks = [actionState.task, ...prevTasks];
+          if (count && count > 0) {
+            console.log(`Auto-deleted ${count} old completed task(s).`);
+            // Log aktivitas: Task dihapus
+            const { error: logError } = await supabase
+              .from('activity_log')
+              .insert({
+                user_id: currentUser.id,
+                page: 'Todo',
+                action: 'Deleted',
+                details: `Auto-deleted ${count} old completed task(s): ${taskNames}`,
+                created_at: new Date().toISOString()
+              });
+            if (logError) console.error("Error logging task deletion activity:", logError.message);
+            const updatedTasks = await syncTasks(currentUser.id);
+            setTasks(updatedTasks);
+          } else {
+            console.log('Checked for old completed tasks to delete. None found or deleted.');
+          }
         }
-        return newTasks.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-      });
-      setShowForm(false);
-    } else if (!actionState.success && actionState.message && !isPending) {
-      alert(`Error: ${actionState.message}`);
-      console.error("Form action error:", actionState.message, actionState.errors);
+      }
+    };
+
+    if (currentUser) {
+      const intervalId = setInterval(deleteOldCompletedTasks, 60 * 60 * 1000);
+      deleteOldCompletedTasks();
+      return () => clearInterval(intervalId);
     }
-  }, [actionState, isPending]);
+  }, [currentUser]);
 
   const todoTasksRaw = tasks.filter(task => task.status === 'todo');
   const visibleTodoTasks = todoTasksRaw.slice(0, taskCountQuota);
@@ -354,7 +437,6 @@ export default function TodoPage() {
 
   return (
     <PageLayout title="TODO">
-      {/* ... (Rest of your JSX remains the same as in your provided code) ... */}
       {showForm && (
         <TaskForm
           formAction={formAction}
