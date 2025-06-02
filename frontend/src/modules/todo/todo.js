@@ -118,6 +118,7 @@ export default function TodoPage() {
   const [isLoadingQuota, setIsLoadingQuota] = useState(true);
   const [taskCountQuota, setTaskCountQuota] = useState(FREE_TODOS_QUOTA_BASE);
   const [currentUser, setCurrentUser] = useState(null);
+  const currentUserIdRef = useRef(null);
 
   useEffect(() => {
     async function loadTodoPageData(sessionUser) {
@@ -126,6 +127,7 @@ export default function TodoPage() {
       if (!sessionUser) {
         console.log("TodoPage: No user session, setting defaults.");
         setCurrentUser(null);
+        currentUserIdRef.current = null;
         setTasks([]);
         setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
         setIsLoadingTasks(false);
@@ -133,7 +135,10 @@ export default function TodoPage() {
         return;
       }
 
-      setCurrentUser(sessionUser); 
+      if (sessionUser.id !== currentUserIdRef.current) {
+          setCurrentUser(sessionUser);
+          currentUserIdRef.current = sessionUser.id;
+        }
 
       try {
         await updateUserQuotaAndHandleExpiryForTodos(sessionUser.id, setTaskCountQuota, setIsLoadingQuota);

@@ -106,7 +106,7 @@ export default function TaskForm({
             {/* Deadline and Time */}
             <div className='grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-5'>
               <div className='flex flex-col gap-1.5'>
-                <label htmlFor='taskDeadline' className='font-medium text-sm text-gray-700'>Deadline</label>
+                <label htmlFor='taskDeadline' className='font-medium text-sm text-gray-700'>Deadline <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <input
                     type='date'
@@ -122,7 +122,7 @@ export default function TaskForm({
               </div>
 
               <div className='flex flex-col gap-1.5'>
-                <label htmlFor='taskDeadlineTime' className='font-medium text-sm text-gray-700'>Hour</label>
+                <label htmlFor='taskDeadlineTime' className='font-medium text-sm text-gray-700'>Hour <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <input
                     type='time'
@@ -140,7 +140,7 @@ export default function TaskForm({
 
             {/* Task Tag */}
             <div className='flex flex-col gap-1.5'>
-              <label htmlFor='taskTag' className='font-medium text-sm text-gray-700'>Tag</label>
+              <label htmlFor='taskTag' className='font-medium text-sm text-gray-700'>Tag <span className="text-red-500">*</span></label>
               <div className="relative">
                 <select
                   name='taskTag' 

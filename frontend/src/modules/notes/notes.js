@@ -168,17 +168,17 @@ export default function NotesPage() {
 
   const handleCreate = () => {
     if (notes.length >= notesCountQuota && notesCountQuota > 0) {
-      alert(`Anda telah mencapai batas ${notesCountQuota} catatan. Silakan upgrade paket Anda untuk menambah catatan.`);
+      alert(`You have reached the limit ${notesCountQuota} note. Please upgrade your package to add notes..`);
       return;
     }
     if (notesCountQuota === 0 && notes.length >= FREE_NOTES_QUOTA_BASE) {
-      alert(`Paket gratis Anda hanya mengizinkan ${FREE_NOTES_QUOTA_BASE} catatan. Silakan upgrade untuk menambah lagi.`);
+      alert(`Your free plan only allows ${FREE_NOTES_QUOTA_BASE} note. Please upgrade to add more.`);
       return;
     }
     if (notesCountQuota === 0 && notes.length < FREE_NOTES_QUOTA_BASE) {
       // Boleh buat
     } else if (notesCountQuota === 0) {
-      alert(`Paket Anda saat ini tidak mengizinkan penambahan catatan. Silakan upgrade.`);
+      alert(`Your current plan does not allow adding notes. Please upgrade..`);
       return;
     }
 
@@ -278,7 +278,8 @@ export default function NotesPage() {
       alert("Error saving note: " + error.message);
     } else {
       const currentQuota = await updateUserQuotaAndHandleExpiryForNotes(user.id, setNotesCountQuota, setIsLoadingQuota);
-      await fetchUserNotes(user.id);
+      const updatedNotes = await fetchUserNotes(user.id);
+      setNotes(updatedNotes);
       setEditing(false);
       setCurrentNote({ id: null, title: "", content: "", date: "" });
     }
@@ -413,7 +414,7 @@ export default function NotesPage() {
   const canCreateNote = user && !isLoadingQuota && notes.length < notesCountQuota;
   const canCreateWithZeroQuotaFreeTier = user && !isLoadingQuota && notesCountQuota === 0 && notes.length < FREE_NOTES_QUOTA_BASE;
   const actualNotesCount = notes.length;
-  const isOverQuota = actualNotesCount > notesCountQuota && notesCountQuota > 0;
+  const isOverQuota = actualNotesCount >= notesCountQuota && notesCountQuota > 0;
   const isAtFreeQuotaLimitWithZeroPaidQuota = notesCountQuota === 0 && actualNotesCount >= FREE_NOTES_QUOTA_BASE;
   const showPageLoadingIndicator = isLoading || (isLoadingQuota && user);
 
@@ -462,9 +463,9 @@ export default function NotesPage() {
             {(isOverQuota || isAtFreeQuotaLimitWithZeroPaidQuota) && (
               <div className="p-4 mb-4 text-sm text-center text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
                 {isAtFreeQuotaLimitWithZeroPaidQuota
-                  ? `Anda telah mencapai batas ${FREE_NOTES_QUOTA_BASE} catatan untuk paket gratis. `
-                  : `Anda telah menggunakan ${actualNotesCount} dari ${notesCountQuota} kuota catatan Anda. `}
-                Silakan <Link href="/settings/billing" className="font-bold underline">upgrade paket Anda</Link> untuk menambah catatan.
+                  ? `You have reached the limit ${FREE_NOTES_QUOTA_BASE} notes for free package. `
+                  : `You have used ${actualNotesCount} from ${notesCountQuota} your notes quota. `}
+                Please <Link href="/settings/billing" className="font-bold underline">upgrade your package</Link> to add more notes.
               </div>
             )}
 
@@ -481,8 +482,8 @@ export default function NotesPage() {
             {actualNotesCount === 0 && !(canCreateNote || canCreateWithZeroQuotaFreeTier) && (
               <div className="text-gray-400 dark:text-gray-500 text-center mt-32 text-lg">
                 {notesCountQuota === 0 && !canCreateWithZeroQuotaFreeTier
-                  ? <>Paket Anda saat ini tidak mengizinkan pembuatan catatan. <Link href="/settings/billing" className="underline text-[#6B5CFF]">Upgrade di sini</Link>.</>
-                  : (isOverQuota || isAtFreeQuotaLimitWithZeroPaidQuota ? <>Anda telah mencapai batas kuota. <Link href="/settings/billing" className="underline text-[#6B5CFF]">Upgrade untuk menambah lagi</Link>.</> : 'No notes yet...')}
+                  ? <>Your current plan does not allow note taking. <Link href="/settings/billing" className="underline text-[#6B5CFF]">Upgrade here!</Link>.</>
+                  : (isOverQuota || isAtFreeQuotaLimitWithZeroPaidQuota ? <>You have reached your quota limit. <Link href="/settings/billing" className="underline text-[#6B5CFF]">Upgrade to add more</Link>.</> : 'No notes yet...')}
               </div>
             )}
              {actualNotesCount === 0 && (canCreateNote || canCreateWithZeroQuotaFreeTier) && (
