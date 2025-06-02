@@ -25,7 +25,7 @@ async function fetchUserProfile() {
     return { id: authUser.id, email: authUser.email};
   }
   
-  console.log("Fetched user profile (PageLayout):", profile);
+  // console.log("Fetched user profile (PageLayout):", profile);
   return profile; 
 }
 

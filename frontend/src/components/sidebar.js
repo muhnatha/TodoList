@@ -57,8 +57,9 @@ const Sidebar = ({ profileEmail }) => {
 
         if (item.href === '/settings') {
             isActive = pathName === item.href ||
-                    (navSettings && navSettings.some(settingRoute => pathName === settingRoute.href)); 
-            isActive = pathName === item.href; 
+                    (navSettings && navSettings.some(settingRoute => pathName === settingRoute.href));  
+        } else {
+            isActive = pathName === item.href;
         }
         
         return (
