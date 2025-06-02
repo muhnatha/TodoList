@@ -84,7 +84,7 @@ const Sidebar = ({ profileEmail }) => {
     let email = 'User';
 
     if (userEmail) {
-        email = userEmail || 'User';
+        email = userEmail;
         avatarSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(email)}&background=random`;
         
         if (email && email.includes('@')) {
@@ -100,7 +100,7 @@ const Sidebar = ({ profileEmail }) => {
             <div className="sm:hidden absolute py-4 px-2 top-0 left-0">
                 <button
                     onClick={toggleMobileSidebar}
-                    className="p-2 rounded-md"
+                    className="p-2 rounded-md  hover:cursor-pointer"
                     aria-label="Open sidebar"
                 >
                     <MenuIcon />
@@ -136,7 +136,7 @@ const Sidebar = ({ profileEmail }) => {
                     {/* Close button for mobile (optional, as overlay click also closes) */}
                      <button
                         onClick={toggleMobileSidebar}
-                        className="sm:hidden p-1 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        className="sm:hidden p-1 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:cursor-pointer"
                         aria-label="Close sidebar"
                     >
                         <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">

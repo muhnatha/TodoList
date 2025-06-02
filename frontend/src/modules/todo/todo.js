@@ -118,94 +118,66 @@ export default function TodoPage() {
   const [isLoadingQuota, setIsLoadingQuota] = useState(true);
   const [taskCountQuota, setTaskCountQuota] = useState(FREE_TODOS_QUOTA_BASE);
   const [currentUser, setCurrentUser] = useState(null);
-  const isInitializingRef = useRef(false);
-  const currentUserIdRef = useRef(null);
 
   useEffect(() => {
-    const initializePage = async (sessionUser) => {
-      if (isInitializingRef.current) {
-        return;
-      }
-      isInitializingRef.current = true;
+    async function loadTodoPageData(sessionUser) {
       setIsLoadingTasks(true);
-      setIsLoadingQuota(true);
 
-      try {
-        if (!sessionUser) {
-          console.log("TodoPage: No user session, setting defaults.");
-          setCurrentUser(null);
-          currentUserIdRef.current = null;
-          setTasks([]);
-          setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
-          return;
-        }
-
-        if (sessionUser.id !== currentUserIdRef.current) {
-          setCurrentUser(sessionUser);
-          currentUserIdRef.current = sessionUser.id;
-        }
-
-        await updateUserQuotaAndHandleExpiryForTodos(sessionUser.id, setTaskCountQuota, setIsLoadingQuota);
-
-        const fetchedTasks = await fetchTasks(sessionUser.id);
-        setTasks(fetchedTasks);
-
-      } catch (error) {
-        console.error("TodoPage: Error during page initialization:", error.message);
+      if (!sessionUser) {
+        console.log("TodoPage: No user session, setting defaults.");
         setCurrentUser(null);
-        currentUserIdRef.current = null;
         setTasks([]);
         setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
+        setIsLoadingTasks(false);
+        setIsLoadingQuota(false); 
+        return;
+      }
+
+      setCurrentUser(sessionUser); 
+
+      try {
+        await updateUserQuotaAndHandleExpiryForTodos(sessionUser.id, setTaskCountQuota, setIsLoadingQuota);
+        const fetchedTasks = await fetchTasks(sessionUser.id);
+        setTasks(fetchedTasks);
+      } catch (error) {
+        console.error("TodoPage: Error during page data loading:", error.message);
+        setCurrentUser(null);
+        setTasks([]);
+        setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
+        setIsLoadingQuota(false);
       } finally {
         setIsLoadingTasks(false);
-        isInitializingRef.current = false;
       }
-    };
+    }
 
-    supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
+    supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
       if (sessionError) {
         console.error("TodoPage: Error getting initial session:", sessionError.message);
-        await initializePage(null);
+        loadTodoPageData(null);
       } else {
-        await initializePage(session?.user || null);
+        loadTodoPageData(session?.user || null);
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("TodoPage Auth event:", event, "Current User ID:", currentUserIdRef.current, "Session User ID:", session?.user?.id);
-
+        console.log("TodoPage Auth Event:", event, "Session User ID:", session?.user?.id);
         if (event === "SIGNED_IN") {
-          if (session?.user && session.user.id !== currentUserIdRef.current) {
-            console.log("TodoPage: User changed or newly signed in, re-initializing.");
-            await initializePage(session.user);
-          } else if (session?.user && currentUserIdRef.current === null) {
-            console.log("TodoPage: User signed in (was previously null), re-initializing.");
-            await initializePage(session.user);
-          } else if (session?.user && !isLoadingTasks && !isLoadingQuota) {
-            console.log("TodoPage: Auth event SIGNED_IN for same user, no re-initialization needed if not loading.");
-          }
+          console.log("TodoPage: User SIGNED_IN. Reloading data.");
+          loadTodoPageData(session?.user || null);
         } else if (event === "SIGNED_OUT") {
-          console.log("TodoPage: User signed out, resetting page.");
-          isInitializingRef.current = true;
-          setCurrentUser(null);
-          currentUserIdRef.current = null;
-          setTasks([]);
-          setTaskCountQuota(FREE_TODOS_QUOTA_BASE);
-          setIsLoadingTasks(false);
-          setIsLoadingQuota(false);
-          isInitializingRef.current = false;
+          console.log("TodoPage: User SIGNED_OUT. Resetting page.");
+          loadTodoPageData(null);
         } else if (event === "TOKEN_REFRESHED" && session?.user) {
-          console.log("TodoPage: Token refreshed for user:", session.user.id, "Checking quota.");
-          if (session.user.id === currentUserIdRef.current) {
-            await updateUserQuotaAndHandleExpiryForTodos(session.user.id, setTaskCountQuota, setIsLoadingQuota);
-          }
+          console.log("TodoPage: Token refreshed for user:", session.user.id, ". Re-checking quota.");
+          // setIsLoadingQuota(true); 
+          await updateUserQuotaAndHandleExpiryForTodos(session.user.id, setTaskCountQuota, setIsLoadingQuota);
         }
       }
     );
 
     return () => {
-      subscription?.unsubscribe();
+      authListener?.subscription.unsubscribe();
     };
   }, []);
 

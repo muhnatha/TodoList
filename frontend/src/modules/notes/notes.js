@@ -69,6 +69,23 @@ async function updateUserQuotaAndHandleExpiryForNotes(userId, setNotesCountQuota
   }
 }
 
+async function fetchUserNotes (userId) { 
+  if (!userId) return;
+  const { data, error } = await supabase
+    .from("notes")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching notes:", error.message);
+    alert("Error fetching notes: " + error.message);
+    return [];
+  }
+
+  return data || [];
+};
+
 export default function NotesPage() {
   const [notes, setNotes] = useState([]);
   const [editing, setEditing] = useState(false);
@@ -86,111 +103,68 @@ export default function NotesPage() {
   const [notesCountQuota, setNotesCountQuota] = useState(FREE_NOTES_QUOTA_BASE);
   const [inputValue, setInputValue] = useState('');
   const [searchResult, setSearchResult] = useState("");
-  const isInitializingRef = useRef(false);
-  const currentUserIdRef = useRef(null);
-
-  const fetchUserNotes = async (userId) => { 
-    if (!userId) return;
-    const { data, error } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching notes:", error.message);
-      alert("Error fetching notes: " + error.message);
-      setNotes([]);
-    } else {
-      setNotes(data || []);
-    }
-  };
 
   useEffect(() => {
-    const initializePage = async (sessionUser) => {
-      if (isInitializingRef.current) {
-        console.log("Initialization already in progress. Skipping.");
+    async function loadNotesPageData(sessionUser) {
+      setIsLoading(true);
+
+      if (!sessionUser) {
+        console.log("NotesPage: No user session, setting defaults.");
+        setUser(null);
+        setNotes([]);
+        setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
+        setIsLoading(false);
+        setIsLoadingQuota(false); 
         return;
       }
-      isInitializingRef.current = true;
-      setIsLoading(true);
-      setIsLoadingQuota(true); 
+
+      setUser(sessionUser); 
+
       try {
-        if (!sessionUser) {
-          console.log("No user session, setting defaults.");
-          setUser(null);
-          currentUserIdRef.current = null;
-          setNotes([]);
-          setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
-          return;
-        }
-
-        if (sessionUser.id !== currentUserIdRef.current) {
-            setUser(sessionUser);
-            currentUserIdRef.current = sessionUser.id;
-        }
-        
-        const currentQuota = await updateUserQuotaAndHandleExpiryForNotes(sessionUser.id, setNotesCountQuota, setIsLoadingQuota);
-        await fetchUserNotes(sessionUser.id);
-        
+        await updateUserQuotaAndHandleExpiryForNotes(sessionUser.id, setNotesCountQuota, setIsLoadingQuota);
+        const fetchedNotes = await fetchUserNotes(sessionUser.id);
+        setNotes(fetchedNotes);
       } catch (error) {
-          console.error("Error during page initialization:", error.message);
-          setUser(null);
-          currentUserIdRef.current = null;
-          setNotes([]);
-          setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
+        console.error("NotesPage: Error during page data loading:", error.message);
+        setUser(null);
+        setNotes([]);
+        setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
+        setIsLoadingQuota(false); 
       } finally {
-        setIsLoading(false);
-        isInitializingRef.current = false;
+        setIsLoading(false); 
       }
-    };
+    }
 
-    supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
-        if (sessionError) {
-            console.error("Error getting initial session:", sessionError.message);
-            await initializePage(null); 
-            await initializePage(session?.user || null);
-        }
+    supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
+      if (sessionError) {
+        console.error("NotesPage: Error getting initial session:", sessionError.message);
+        loadNotesPageData(null);
+      } else {
+        loadNotesPageData(session?.user || null);
+      }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("Auth event:", event, "Current User ID:", currentUserIdRef.current, "Session User ID:", session?.user?.id);
+        console.log("NotesPage Auth Event:", event, "Session User ID:", session?.user?.id);
         if (event === "SIGNED_IN") {
-          if (session?.user && session.user.id !== currentUserIdRef.current) {
-            console.log("User changed or newly signed in, re-initializing.");
-            await initializePage(session.user);
-          } else if (session?.user && currentUserIdRef.current === null) {
-            console.log("User signed in (was previously null), re-initializing.");
-            await initializePage(session.user);
-          } else if (session?.user && !isLoading && !isLoadingQuota) {
-            console.log("Auth event SIGNED_IN for same user, no re-initialization needed if not loading.");
-          }
+          console.log("NotesPage: User SIGNED_IN. Reloading data.");
+          loadNotesPageData(session?.user || null);
         } else if (event === "SIGNED_OUT") {
-          console.log("User signed out, resetting page.");
-          isInitializingRef.current = true; 
-          setUser(null);
-          currentUserIdRef.current = null;
-          setNotes([]);
-          setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
-          setIsLoading(false); 
-          setIsLoadingQuota(false);
-          isInitializingRef.current = false;
+          console.log("NotesPage: User SIGNED_OUT. Resetting page.");
+          loadNotesPageData(null);
         } else if (event === "TOKEN_REFRESHED" && session?.user) {
-            console.log("Token refreshed for user:", session.user.id, "Checking quota.");
-            if (session.user.id === currentUserIdRef.current) {
-                const previousIsLoadingQuota = isLoadingQuota; 
-                await updateUserQuotaAndHandleExpiryForNotes(session.user.id, setNotesCountQuota, setIsLoadingQuota);
-                setIsLoadingQuota(previousIsLoadingQuota); 
-            }
+          console.log("NotesPage: Token refreshed for user:", session.user.id, ". Re-checking quota.");
+          // setIsLoadingQuota(true);
+          await updateUserQuotaAndHandleExpiryForNotes(session.user.id, setNotesCountQuota, setIsLoadingQuota);
         }
       }
     );
 
     return () => {
-      subscription?.unsubscribe();
+      authListener?.subscription.unsubscribe();
     };
-  }, []); 
+  }, []);
 
   const handleCreate = () => {
     if (notes.length >= notesCountQuota && notesCountQuota > 0) {
