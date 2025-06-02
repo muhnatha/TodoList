@@ -10,14 +10,12 @@ import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
 async function fetchUserProfile() {
-  // Get the currently authenticated user
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) {
     console.error("Error fetching user or no user logged in:", userError?.message || "No user session");
-    return null; // Return null if no user or error
+    return null;
   }
 
-  // Fetch the profile for this user
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
@@ -25,16 +23,16 @@ async function fetchUserProfile() {
     .single();
 
   if (profileError) {
-    if (profileError.code !== 'PGRST116') { // PGRST116 means 0 rows, not necessarily an "error"
+    if (profileError.code !== 'PGRST116') { 
         console.error("Error fetching profile:", profileError.message);
     } else {
         console.log("No profile found for user ID:", user.id);
     }
-    return null; // Return null if profile not found or error
+    return null; 
   }
   
   console.log("Fetched user profile:", profile);
-  return profile; // Returns the profile object or null
+  return profile;
 }
 
 export default function SettingsDetailsPage() {
@@ -59,7 +57,6 @@ export default function SettingsDetailsPage() {
         const userProfile = await fetchUserProfile();
 
         if (userProfile) {
-          // Destructure with default values to handle missing properties gracefully
           const {
             id = '',
             email = '',
@@ -72,7 +69,6 @@ export default function SettingsDetailsPage() {
 
           setUserProfile(userProfile);
 
-          // Set all states
           setProfileId(id ?? '');
           setEmail(email ?? '');
           setFirstName(first_name ?? '');
@@ -82,11 +78,10 @@ export default function SettingsDetailsPage() {
           setNotesCount(notes_current_total_quota ?? 3);
 
           if (!id) console.error("Profile ID not found in fetched data, even after destructuring.");
-          if (!email && id) console.warn("Email not found in profile for user:", id); // Only warn if profile ID exists
+          if (!email && id) console.warn("Email not found in profile for user:", id);
 
         } else {
           console.log("No profile data loaded for the user. Using default states.");
-          // Reset to defaults if no profile (optional, if you want explicit reset)
           setProfileId('');
           setEmail('');
           setFirstName('');
@@ -97,7 +92,6 @@ export default function SettingsDetailsPage() {
         }
       } catch (error) {
         console.error("Error in fetch:", error);
-        // Reset all states to default on error
         setProfileId('');
         setEmail('');
         setFirstName('');
@@ -111,16 +105,13 @@ export default function SettingsDetailsPage() {
     loadInitialData();
   }, []);
 
-  let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; // Default
+  let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; 
   let avatarFallback = 'U';
   let userEmail = 'User';
 
   if (userProfile) {
       userEmail = userProfile.email || 'User';
-      // Prefer avatar_url from profiles table, then from auth.user.user_metadata, then ui-avatars
-      avatarSrc = userProfile.avatar_url || // from 'profiles' table
-                  userProfile.user_metadata?.avatar_url || // from 'auth.users' table
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
+      avatarSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
       
       if (userEmail && userEmail.includes('@')) {
           avatarFallback = userEmail.substring(0, 2).toUpperCase();
@@ -132,7 +123,6 @@ export default function SettingsDetailsPage() {
   const handleSave = async (e) => {
     e.preventDefault();
     try {
-    // First verify the email is valid and belongs to the current user
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData?.user) {
       console.error('No authenticated user found:', userError?.message);

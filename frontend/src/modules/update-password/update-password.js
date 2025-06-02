@@ -1,18 +1,16 @@
-// pages/update-password.js
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link'; // Import Link for navigation
+import Link from 'next/link';
 import { Lock, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 
-// MessageDisplay Component (remains the same, already in English or using props)
 function MessageDisplay({ type, content }) {
     if (!content) return null;
     const baseClasses = "p-3 rounded-md text-sm flex items-center";
     let typeClasses = "";
-    let IconComponent = null; // Renamed for clarity
+    let IconComponent = null; 
 
     if (type === 'error') {
         typeClasses = "bg-red-100 text-red-700";
@@ -20,7 +18,7 @@ function MessageDisplay({ type, content }) {
     } else if (type === 'success') {
         typeClasses = "bg-green-100 text-green-700";
         IconComponent = <CheckCircle className="mr-2 h-5 w-5" />;
-    } else { // Default or info type
+    } else { 
         typeClasses = "bg-blue-100 text-blue-700";
         IconComponent = <AlertCircle className="mr-2 h-5 w-5" />;
     }
@@ -67,7 +65,6 @@ export default function UpdatePassword() {
                 setIsSessionReadyForUpdate(false);
             } else if (data.session) {
                 console.log("processAuthCode: ✅ Session successful from exchange code (onAuthStateChange will confirm):", data.session);
-                // onAuthStateChange will handle setting isSessionReadyForUpdate and messages
             } else {
                 console.warn("processAuthCode: Exchange code successful, but no session data.");
                 setMessage({ type: 'error', content: 'The password reset link is invalid or an internal error occurred. Please try again.' });
@@ -75,7 +72,6 @@ export default function UpdatePassword() {
             }
         } else {
             console.warn("processAuthCode: Called without a valid authCode or errorParam.");
-            // Only show error if not already processing a valid session via fragment or already ready
             if (!window.location.hash.includes('access_token') && !isSessionReadyForUpdate) {
                 setMessage({ type: 'error', content: 'The password reset link is invalid or incomplete.' });
             }
@@ -83,10 +79,10 @@ export default function UpdatePassword() {
         if (!isSessionReadyForUpdate) { 
             setIsLinkValidationLoading(false);
         }
-    }, [searchParams, router]); // Removed isSessionReadyForUpdate from deps as it caused loops
+    }, [searchParams, router]); 
 
     useEffect(() => {
-        if (!isSessionReadyForUpdate && !message.type) { // Only show initial loading if no message is set yet
+        if (!isSessionReadyForUpdate && !message.type) { 
             setIsLinkValidationLoading(true);
         }
         const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
@@ -96,84 +92,73 @@ export default function UpdatePassword() {
                     console.log('✅ PASSWORD_RECOVERY event detected.');
                     setIsSessionReadyForUpdate(true);
                     setMessage({ type: 'success', content: 'Recovery link validated. Please enter your new password.' });
-                    router.replace('/update-password', { scroll: false }); // Clean URL
+                    router.replace('/update-password', { scroll: false }); 
                     setIsLinkValidationLoading(false);
-                    hasProcessedUrlParams.current = true; // Mark as processed
+                    hasProcessedUrlParams.current = true;
                     break;
                 case 'SIGNED_IN':
                     if (session) {
                         console.log('✅ SIGNED_IN event detected.');
-                        // This can happen after exchangeCodeForSession if it leads to a sign-in
-                        // or if the user was already signed in through the recovery flow.
-                        if (!isSessionReadyForUpdate) { // If not already set by PASSWORD_RECOVERY
+                        if (!isSessionReadyForUpdate) { 
                            setIsSessionReadyForUpdate(true);
                            setMessage({ type: 'success', content: 'Session validated. You can now update your password.' });
                         } else {
-                            // If already ready, ensure loading is false
                            setIsSessionReadyForUpdate(true); 
                         }
                         setIsLinkValidationLoading(false);
-                        hasProcessedUrlParams.current = true; // Mark as processed
+                        hasProcessedUrlParams.current = true; 
                     }
                     break;
                 case 'INITIAL_SESSION':
                     console.log('INITIAL_SESSION event detected.');
                     const code = searchParams.get('code');
                     const errorParam = searchParams.get('error');
-                    const hasFragment = window.location.hash.includes('access_token'); // PKCE flow might use fragment
-                    // If no session, no code, no error, and no fragment, it's likely an invalid direct access.
+                    const hasFragment = window.location.hash.includes('access_token'); 
                     if (!session && !code && !errorParam && !hasFragment) {
-                        if (!isSessionReadyForUpdate) { // Only if not already validated
+                        if (!isSessionReadyForUpdate) { 
                             setMessage({ type: 'error', content: 'The password reset link is invalid or incomplete.' });
                         }
                     }
-                    if (!code && !errorParam) { // If no params to process, stop initial loading
+                    if (!code && !errorParam) { 
                         setIsLinkValidationLoading(false);
                     }
                     break;
                 case 'SIGNED_OUT':
                     console.log('SIGNED_OUT event detected.');
                     setIsSessionReadyForUpdate(false);
-                    setIsLinkValidationLoading(false); // Stop loading if signed out
-                    hasProcessedUrlParams.current = false; // Reset processing flag
+                    setIsLinkValidationLoading(false); 
+                    hasProcessedUrlParams.current = false; 
                     break;
                 case 'USER_UPDATED':
                     console.log("User information successfully updated (USER_UPDATED event).");
-                    // This event fires after supabase.auth.updateUser()
-                    // The success message and redirect are handled in handleSubmit
                     break;
                 default:
-                    // Potentially stop loading if no other event handles it and session is not ready
                     if (!isSessionReadyForUpdate && !searchParams.get('code') && !searchParams.get('error') && !window.location.hash.includes('access_token')) {
                         setIsLinkValidationLoading(false);
                     }
             }
         });
         return () => { authListener.subscription.unsubscribe(); };
-    }, [router, searchParams, isSessionReadyForUpdate, message.type]); // Added message.type to deps
+    }, [router, searchParams, isSessionReadyForUpdate, message.type]); 
 
     useEffect(() => {
         const code = searchParams.get('code');
         const errorParam = searchParams.get('error');
-        // Only call processAuthCode if there's a code or error in URL and it hasn't been processed,
-        // and a session isn't already established for password recovery.
         if (!isSessionReadyForUpdate && (code || errorParam) && !hasProcessedUrlParams.current) {
             console.log("useEffect: Detected 'code' or 'errorParam', delaying processAuthCode call.");
-            hasProcessedUrlParams.current = true; // Mark as attempting to process
+            hasProcessedUrlParams.current = true; 
             const timerId = setTimeout(() => {
                 console.log("Calling processAuthCode after delay.");
                 processAuthCode();
-            }, 700); // Delay to allow onAuthStateChange to potentially fire first
+            }, 700); 
             return () => {
                 console.log("useEffect cleanup: Clearing timer for processAuthCode.");
                 clearTimeout(timerId);
             };
         } else if (isSessionReadyForUpdate && (code || errorParam)) {
-            // If session is ready but params are still in URL, means they were processed.
-            // Ensure loading is false.
             if(isLinkValidationLoading) setIsLinkValidationLoading(false);
         }
-    }, [searchParams, processAuthCode, isSessionReadyForUpdate, isLinkValidationLoading]); // Added isLinkValidationLoading
+    }, [searchParams, processAuthCode, isSessionReadyForUpdate, isLinkValidationLoading]); 
 
     useEffect(() => {
         if (shouldRedirectToLogin) {
@@ -184,16 +169,14 @@ export default function UpdatePassword() {
                     console.log("Sign out successful.");
                 } catch (signOutError) {
                     console.error("Error signing out after password update:", signOutError);
-                    // Optional: Handle sign out error if necessary,
-                    // but still proceed to redirect to login.
                 } finally {
                     console.log("Redirecting to login page.");
                     router.push('/login');
-                    setShouldRedirectToLogin(false); // Reset trigger state
+                    setShouldRedirectToLogin(false); 
                 }
-            }, 3000); // Display message for 3 seconds
+            }, 3000); 
 
-            return () => clearTimeout(timerId); // Cleanup timer if component unmounts
+            return () => clearTimeout(timerId);
         }
     }, [shouldRedirectToLogin, router]);
 
@@ -213,14 +196,14 @@ export default function UpdatePassword() {
             return;
         }
         
-        setMessage({ type: '', content: '' }); // Clear previous messages
+        setMessage({ type: '', content: '' }); 
         setSubmitLoading(true);
 
         const { error: updateError } = await supabase.auth.updateUser({
             password: password,
         });
         
-        setSubmitLoading(false); // Stop submit loading immediately after the call
+        setSubmitLoading(false); 
 
         if (updateError) {
             setMessage({ type: 'error', content: `Failed to update password: ${updateError.message}` });
@@ -228,15 +211,14 @@ export default function UpdatePassword() {
         } else {
             console.log("Password updated successfully. Displaying message and triggering redirect via useEffect.");
             setMessage({ type: 'success', content: 'Password updated successfully! You will be redirected to the login page shortly.' });
-            setShouldRedirectToLogin(true); // Trigger useEffect for sign out and redirect
+            setShouldRedirectToLogin(true);
         }
     };
 
-    if (isLinkValidationLoading && !message.content && !isSessionReadyForUpdate) { // Show loading only if no message is displayed yet
+    if (isLinkValidationLoading && !message.content && !isSessionReadyForUpdate) { 
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200 p-4">
                 <p className="text-lg text-gray-700">Validating link...</p>
-                {/* You could add a spinner icon here */}
             </div>
         );
     }

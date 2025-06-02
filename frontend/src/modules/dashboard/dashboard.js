@@ -1,4 +1,3 @@
-// app/dashboard/page.jsx
 'use client'
 import React, { useState, useEffect } from 'react';
 import PageLayout from "@/components/PageLayout";
@@ -6,14 +5,12 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { Button } from "@/components/ui/button";
 
-// Import Lucide Icons
 import {
   BarChart3, CheckCircle2, AlertTriangle, CalendarClock, Tag as TagIcon,
   Zap, DollarSign, ListChecks, PlusCircle, ListTodo, Users, TrendingUp,
   Archive, LayoutGrid, StickyNote
 } from 'lucide-react';
 
-// Import Recharts components
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
@@ -21,7 +18,6 @@ import {
 const FREE_NOTES_QUOTA_BASE = 3;
 const FREE_TODOS_QUOTA_BASE = 5;
 
-// --- Helper Functions ---
 const formatDate = (dateString, options) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
@@ -56,7 +52,6 @@ const isOverdue = (dateString) => {
   return date < today;
 };
 
-// Fetches data from 'task' table for active tasks, quota etc.
 async function fetchDashboardDataForUser(userId) {
   if (!userId) {
     console.error("Dashboard (Tasks): User ID not provided.");
@@ -84,7 +79,6 @@ async function fetchDashboardDataForUser(userId) {
   return { tasks: tasksData || [], quota: userTaskQuota };
 }
 
-// Fetches total completed tasks count from 'task_completion_log'
 async function fetchTotalCompletedTasks(userId) {
   if (!userId) {
     console.error("Dashboard (Task Log): User ID not provided.");
@@ -104,7 +98,6 @@ async function fetchTotalCompletedTasks(userId) {
   return completedTasksLog || [];
 }
 
-// Fetches daily completion summaries for a given date range
 async function fetchDailySummaryForRange(userId, startDateStr, endDateStr) {
     if (!userId) {
         console.error("Dashboard (Daily Summary Range): User ID not provided.");
@@ -125,7 +118,6 @@ async function fetchDailySummaryForRange(userId, startDateStr, endDateStr) {
     return data || [];
 }
 
-// Fetches recent notes data (implementation from your provided code)
 async function fetchRecentNotesData(userId) {
   if (!userId) {
     console.error("Dashboard (Notes): User ID not provided.");
@@ -163,15 +155,14 @@ async function fetchRecentNotesData(userId) {
   };
 }
 
-
 export default function DashboardPage() {
   const [dashboardStats, setDashboardStats] = useState({
     activeTodoCount: 0,
-    totalCompletedCount: 0,     // To be sourced from task_completion_log
+    totalCompletedCount: 0,    
     dueTodayCount: 0,
     overdueCount: 0,
-    completedTodayCount: 0,     // To be sourced from daily_task_completion_summary
-    completedThisWeekCount: 0,  // To be sourced from daily_task_completion_summary
+    completedTodayCount: 0,     
+    completedThisWeekCount: 0,  
     addedTodayCount: 0,
     quota: FREE_TODOS_QUOTA_BASE,
     quotaUsage: 0,
@@ -201,7 +192,6 @@ export default function DashboardPage() {
       if (authUserError || !authDataResult?.user) {
         console.error("Dashboard: Error fetching user session:", authUserError?.message || "No user session");
         setUserName('Guest');
-        // Reset stats to default for no user
         setDashboardStats(prev => ({ ...prev, activeTodoCount: 0, totalCompletedCount: 0, dueTodayCount: 0, overdueCount: 0, completedTodayCount: 0, completedThisWeekCount: 0, addedTodayCount: 0, quota: FREE_TODOS_QUOTA_BASE, quotaUsage: 0, quotaPercentage: 0, isOverQuota: false, tagSummary: {} }));
         setNotesStats(prev => ({ ...prev, totalNotesCount: 0, notesQuota: FREE_NOTES_QUOTA_BASE, notesQuotaUsage: 0, notesQuotaPercentage: 0, isOverNotesQuota: false, recentNotes: [] }));
         setCompletionGraphData([]);
@@ -209,28 +199,26 @@ export default function DashboardPage() {
         return;
       }
       const user = authDataResult.user;
-      setUserName(user.user_metadata?.full_name || (user.email ? user.email.split('@')[0] : '') || 'User');
+      setUserName((user.email ? user.email.split('@')[0] : '') || 'User');
 
-      // --- Determine Date Ranges for Daily Summaries ---
       const today = new Date();
       const todayStr = toYYYYMMDD(today);
 
-      const chartStartDate = new Date(); // For 7-day chart
+      const chartStartDate = new Date();
       chartStartDate.setDate(today.getDate() - 6);
 
-      const currentDayOfWeek = today.getDay(); // 0=Sun, 1=Mon
-      const weekStartDate = new Date(today); // For "this week" calculation
+      const currentDayOfWeek = today.getDay(); 
+      const weekStartDate = new Date(today);
       weekStartDate.setDate(today.getDate() - (currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1));
 
       const earliestFetchDateForDailySummary = new Date(Math.min(chartStartDate.getTime(), weekStartDate.getTime()));
       const earliestFetchDateStr = toYYYYMMDD(earliestFetchDateForDailySummary);
 
-      // --- Fetch All Data Concurrently ---
       const [
-        taskRelatedData,         // From 'task' table
-        taskLogEntries,          // From 'task_completion_log' for total completed
-        rangedDailySummaries,    // From 'daily_task_completion_summary' for chart & weekly/daily counts
-        notesRelatedData         // For notes
+        taskRelatedData,         
+        taskLogEntries,          
+        rangedDailySummaries,    
+        notesRelatedData        
       ] = await Promise.all([
         fetchDashboardDataForUser(user.id),
         fetchTotalCompletedTasks(user.id),
@@ -238,7 +226,6 @@ export default function DashboardPage() {
         fetchRecentNotesData(user.id)
       ]);
 
-      // --- Process Total Completed Tasks (from task_completion_log) ---
       let actualTotalCompletedCount = 0;
       if (taskLogEntries && taskLogEntries.length > 0 && typeof taskLogEntries[0].completed_task_count === 'number') {
         actualTotalCompletedCount = taskLogEntries[0].completed_task_count;
@@ -248,8 +235,6 @@ export default function DashboardPage() {
       //   actualTotalCompletedCount = taskRelatedData.tasks.filter(t => t.status === 'completed').length;
       // }
 
-
-      // --- Process Ranged Daily Summaries (for chart, today's/week's completions) ---
       const dailySummaryMap = new Map();
       if (rangedDailySummaries) {
         rangedDailySummaries.forEach(summary => {
@@ -302,11 +287,11 @@ export default function DashboardPage() {
       // --- Update Dashboard Stats State ---
       setDashboardStats({
         activeTodoCount: activeTodos.length,
-        totalCompletedCount: actualTotalCompletedCount, // Sourced from task_completion_log
+        totalCompletedCount: actualTotalCompletedCount, 
         dueTodayCount: dueToday,
         overdueCount: overdue,
-        completedTodayCount: newCompletedTodayCount,     // Sourced from daily_task_completion_summary
-        completedThisWeekCount: newCompletedThisWeekCount, // Sourced from daily_task_completion_summary
+        completedTodayCount: newCompletedTodayCount,    
+        completedThisWeekCount: newCompletedThisWeekCount,
         addedTodayCount: addedToday,
         quota: taskQuotaFromProfile,
         quotaUsage: currentTaskQuotaUsage,
@@ -339,7 +324,6 @@ export default function DashboardPage() {
     { title: "Total Completed Tasks", value: dashboardStats.totalCompletedCount, icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-50 dark:bg-green-900/30" },
   ];
 
-  // ... (Rest of the JSX for UI rendering remains the same as your provided code)
   if (isLoading) {
     return (
       <PageLayout title="DASHBOARD OVERVIEW">

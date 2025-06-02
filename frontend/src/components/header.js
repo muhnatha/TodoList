@@ -2,69 +2,33 @@
 import { React, useState, useEffect } from 'react' 
 import { Bell, X, CheckCircle } from 'lucide-react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { supabase } from '@/lib/supabaseClient'; 
 
-async function fetchUserProfile(supabase) { 
-  const { data: { user: authUser }, error: userError } = await supabase.auth.getUser(); 
-  if (userError || !authUser) {
-    console.error("Error fetching user or no user logged in:", userError?.message || "No user session");
-    return null;
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', authUser.id)
-    .single();
-
-  if (profileError) {
-    if (profileError.code !== 'PGRST116') {
-      console.error("Error fetching profile:", profileError.message);
-    } else {
-      console.log("No profile found for user ID:", authUser.id);
-    }
-    return { id: authUser.id, email: authUser.email, user_metadata: authUser.user_metadata };
-  }
-  
-  console.log("Fetched user profile:", profile);
-  return { ...authUser, ...profile }; 
-}
-
-export default function Header({ title, supabase }) { 
+export default function Header({ title, profileEmail }) { 
     const [showNotification, setShowNotification] = useState(false);
-    const [userProfile, setUserProfile] = useState(null); 
+    const [userEmail, setUserEmail] = useState('');
     const [loadingProfile, setLoadingProfile] = useState(true); 
 
     useEffect(() => {
         async function loadProfile() {
-            if (!supabase) {
-                console.error("Supabase client is not provided to Header component.");
-                setLoadingProfile(false);
-                return;
-            }
             setLoadingProfile(true);
-            const profile = await fetchUserProfile(supabase);
-            setUserProfile(profile);
+            setUserEmail(profileEmail);
             setLoadingProfile(false);
         }
         loadProfile();
-    }, [supabase]); // Re-run if supabase prop changes
+    }, [profileEmail]);
 
-    // Determine avatar source and fallback text
     let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`; 
     let avatarFallback = 'U';
-    let userEmail = 'User';
+    let email = 'User';
 
-    if (userProfile) {
-        userEmail = userProfile.email || 'User';
-        avatarSrc = userProfile.avatar_url || 
-                    userProfile.user_metadata?.avatar_url || 
-                    `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
+    if (userEmail) {
+        email = userEmail || 'User';
+        avatarSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(email)}&background=random`;
         
-        if (userEmail && userEmail.includes('@')) {
-            avatarFallback = userEmail.substring(0, 2).toUpperCase();
-        } else if (userEmail) {
-            avatarFallback = userEmail.substring(0, 1).toUpperCase();
+        if (email && email.includes('@')) {
+            avatarFallback = email.substring(0, 2).toUpperCase();
+        } else if (email) {
+            avatarFallback = email.substring(0, 1).toUpperCase();
         }
     }
 

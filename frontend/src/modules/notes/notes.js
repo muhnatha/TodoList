@@ -1,6 +1,5 @@
 "use client";
-
-import { useState, useEffect, useRef } from "react"; // Added useRef
+import { useState, useEffect, useRef } from "react";
 import PageLayout from "@/components/PageLayout";
 import { ArrowDownToLine, MessageCircleX, Pencil, Trash2, PlusCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
@@ -63,7 +62,7 @@ async function updateUserQuotaAndHandleExpiryForNotes(userId, setNotesCountQuota
     return currentTotalNotesQuota;
   } catch (error) {
     console.error("Unexpected error in updateUserQuotaAndHandleExpiryForNotes:", error.message);
-    setNotesCountQuotaHook(FREE_NOTES_QUOTA_BASE); // Fallback to base quota on error
+    setNotesCountQuotaHook(FREE_NOTES_QUOTA_BASE);
     return FREE_NOTES_QUOTA_BASE;
   } finally {
     setIsLoadingQuotaHook(false);
@@ -123,7 +122,7 @@ export default function NotesPage() {
           currentUserIdRef.current = null;
           setNotes([]);
           setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
-          return; // Exit early
+          return;
         }
 
         if (sessionUser.id !== currentUserIdRef.current) {
@@ -140,20 +139,16 @@ export default function NotesPage() {
           currentUserIdRef.current = null;
           setNotes([]);
           setNotesCountQuota(FREE_NOTES_QUOTA_BASE);
-          // Ensure loading states are false even if an error occurs within the try block
       } finally {
         setIsLoading(false);
-        // setIsLoadingQuota is handled by updateUserQuotaAndHandleExpiryForNotes's finally block
         isInitializingRef.current = false;
       }
     };
 
-    // Initial check for session on component mount
     supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
         if (sessionError) {
             console.error("Error getting initial session:", sessionError.message);
-            await initializePage(null); // Initialize with no user
-        } else {
+            await initializePage(null); 
             await initializePage(session?.user || null);
         }
     });
@@ -173,8 +168,7 @@ export default function NotesPage() {
           }
         } else if (event === "SIGNED_OUT") {
           console.log("User signed out, resetting page.");
-          // Ensure state is reset properly without full re-initialization logic for signed out
-          isInitializingRef.current = true; // Prevent initializePage from running if it's triggered elsewhere
+          isInitializingRef.current = true; 
           setUser(null);
           currentUserIdRef.current = null;
           setNotes([]);
@@ -457,12 +451,12 @@ export default function NotesPage() {
             <h1 className="text-2xl md:text-3xl font-bold text-[#1D1C3B] dark:text-slate-100">
               My Notes
             </h1>
-            {user && !isLoadingQuota && ( // Show count when quota is not loading
+            {user && !isLoadingQuota && ( 
               <span className={`ml-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full ${actualNotesCount >= notesCountQuota ? 'bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200' : ''}`}>
                 {actualNotesCount}/{notesCountQuota > 0 ? notesCountQuota : FREE_NOTES_QUOTA_BASE}
               </span>
             )}
-             {(isLoadingQuota && user) && ( // Show placeholder when quota is loading
+             {(isLoadingQuota && user) && ( 
                 <span className="ml-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full animate-pulse">
                     --/--
                 </span>
@@ -481,7 +475,7 @@ export default function NotesPage() {
           )}
         </div>
 
-        {!user && !showPageLoadingIndicator && ( // Show only if not loading and no user
+        {!user && !showPageLoadingIndicator && ( 
           <div className="text-center py-10">
             <p className="text-lg text-gray-600 dark:text-gray-400">
               Please log in to manage your notes.
@@ -489,7 +483,7 @@ export default function NotesPage() {
           </div>
         )}
 
-        {user && !editing && !showPageLoadingIndicator && ( // Content when user exists, not editing, and not loading
+        {user && !editing && !showPageLoadingIndicator && ( 
           <>
             {(isOverQuota || isAtFreeQuotaLimitWithZeroPaidQuota) && (
               <div className="p-4 mb-4 text-sm text-center text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
@@ -525,7 +519,7 @@ export default function NotesPage() {
           </>
         )}
         
-        {user && editing && ( // Form editor - assumes not loading if editing
+        {user && editing && ( 
           <div className="border dark:border-slate-700 p-6 rounded-md shadow-md bg-white dark:bg-slate-800 w-full max-w-3xl mx-auto relative">
             <div className="flex justify-between items-center mb-2">
               <input
@@ -540,7 +534,7 @@ export default function NotesPage() {
                 <button
                   onClick={handleSave}
                   title="Save Note"
-                  disabled={isLoading} // Disable save if any loading operation is in progress
+                  disabled={isLoading} 
                   className="text-slate-600 dark:text-slate-300 hover:text-[#6B5CFF] dark:hover:text-[#8A7FFF] hover:cursor-pointer disabled:opacity-50"
                 >
                   <ArrowDownToLine />
@@ -613,7 +607,7 @@ export default function NotesPage() {
                         title="Download PDF"
                         className="text-slate-600 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 hover:cursor-pointer"
                       >
-                        <ArrowDownToLine size={18}/> {/* Changed to Lucide Icon */}
+                        <ArrowDownToLine size={18}/> 
                       </button>
                     </div>
                   </div>

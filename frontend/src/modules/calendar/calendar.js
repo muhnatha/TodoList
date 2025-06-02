@@ -13,16 +13,12 @@ import getDay from 'date-fns/getDay';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { supabase } from '@/lib/supabaseClient'
 
-// Import date-fns locale if you want specific localization, e.g., Indonesian
-import { id as indonesianLocale } from 'date-fns/locale/id'; // For Indonesian
+import { id as indonesianLocale } from 'date-fns/locale/id';
 
-// Lokalisasi ke time indonesia (for moment.js if used elsewhere)
 moment.locale("idn");
 
-// Corrected dateFnsLocalizer setup
 const dateFnsLocales = {
-  'id': indonesianLocale, // Use 'id' for Indonesian, or your desired locale
-  // You can add more locales here, e.g., 'en-US': enUS
+  'id': indonesianLocale
 };
 
 const localizer = dateFnsLocalizer({
@@ -30,7 +26,7 @@ const localizer = dateFnsLocalizer({
   parse,
   startOfWeek,
   getDay,
-  locales: dateFnsLocales, // Pass the date-fns locale object here
+  locales: dateFnsLocales
 });
 
 async function fetchTasks() {
@@ -56,13 +52,12 @@ async function fetchTasks() {
 }
 
 export default function CalendarPage() {
-  const [selectedDate, setSelectedDate] = useState(new Date()); // For ShadCalendar
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // State for BigCalendar's date and view
   const [calendarDate, setCalendarDate] = useState(new Date());
-  const [calendarView, setCalendarView] = useState(Views.MONTH); // Default to month view (e.g., Views.MONTH)
+  const [calendarView, setCalendarView] = useState(Views.MONTH); 
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -90,23 +85,21 @@ export default function CalendarPage() {
           const [year, month, day] = task.deadline.split('-').map(Number);
           startDateTime = new Date(year, month - 1, day);
         } else {
-          startDateTime = new Date(); // fallback
+          startDateTime = new Date(); 
         }
         return {
           id: task.id,
           title: task.name,
           start: startDateTime,
-          end: startDateTime, // For all-day events or single point events, start and end can be the same
+          end: startDateTime, 
         };
       })
     : [];
 
-  // Handler for BigCalendar navigation
   const handleNavigate = (newDate) => {
     setCalendarDate(newDate);
   };
 
-  // Handler for BigCalendar view changes
   const handleViewChange = (newView) => {
     setCalendarView(newView);
   };
@@ -121,7 +114,7 @@ export default function CalendarPage() {
             onSelect={(date) => {
               if (date) {
                 setSelectedDate(date);
-                // setCalendarDate(date); // BigCalendar will also update via useEffect
+                // setCalendarDate(date);
               }
             }}
             className={`min-[994px]:mr-2 p-3 rounded-lg shadow-md`}
@@ -142,11 +135,10 @@ export default function CalendarPage() {
               startAccessor="start"
               endAccessor="end"
               style={{ backgroundColor: 'white' }}
-              // ---- Add these props for interactivity ----
-              date={calendarDate}         // Control the current date
-              view={calendarView}         // Control the current view
-              onNavigate={handleNavigate} // Handle date navigation (Back, Next, Today buttons)
-              onView={handleViewChange}   // Handle view changes (Month, Week, Day, Agenda buttons)
+              date={calendarDate}         
+              view={calendarView}         
+              onNavigate={handleNavigate} 
+              onView={handleViewChange}   
               onDrillDown={(date, view) => { setCalendarDate(date); setCalendarView(Views.DAY); }}
             />
           )}

@@ -32,7 +32,7 @@ async function fetchUserProfile() {
   }
   
   console.log("Fetched user profile:", profile);
-  return { ...profile, userId: user.id }; // Include user ID for logging
+  return { ...profile, userId: user.id };
 }
 
 export default function SettingsPasswordPage() {
@@ -107,7 +107,6 @@ export default function SettingsPasswordPage() {
       if (updateError) {
         setErrorMsg(translateSupabaseError(updateError));
       } else {
-        // Log activity to activity_log table
         const { error: logError } = await supabase.from('activity_log').insert({
           user_id: user.id,
           page: 'Password',
@@ -123,7 +122,7 @@ export default function SettingsPasswordPage() {
           setOldPassword('');
           setNewPassword('');
           setNewConfirm('');
-          router.push('/settings'); // Redirect to settings page
+          router.push('/settings'); 
         }
       }
     } catch (error) {

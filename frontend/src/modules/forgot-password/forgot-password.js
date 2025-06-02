@@ -1,22 +1,19 @@
-// pages/forgot-password.js
 import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
-import { Mail, AlertCircle, CheckCircle } from 'lucide-react'; // Icons
+import { Mail, AlertCircle, CheckCircle } from 'lucide-react'; 
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', content: '' }); // type: 'success' | 'error'
+  const [message, setMessage] = useState({ type: '', content: '' }); 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage({ type: '', content: '' });
 
-    // Ensure the redirect URL is correct for your update password page
-    // and is configured in Supabase Auth settings (Redirect URLs)
-    const redirectTo = `${window.location.origin}/update-password`; // Make sure this path is correct
+    const redirectTo = `${window.location.origin}/update-password`; 
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo,

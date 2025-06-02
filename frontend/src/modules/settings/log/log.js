@@ -28,7 +28,7 @@ async function fetchUserProfile() {
     } else {
       console.log("No profile found for user ID:", user.id);
     }
-    return { email: user.email, userId: user.id }; // Fallback to user email and auth avatar
+    return { email: user.email, userId: user.id }; 
   }
   
   return { 
@@ -38,29 +38,27 @@ async function fetchUserProfile() {
   };
 }
 
-// Fetch activity logs for the user, ensuring 'count' is returned
 async function fetchActivityLogs(userId, limit = ITEMS_PER_PAGE, offset = 0) {
   try {
-    const { data: logs, error, count } = await supabase // Destructure 'count' here
+    const { data: logs, error, count } = await supabase 
       .from('activity_log')
-      .select('*', { count: 'exact' }) // 'exact' count is crucial for pagination
+      .select('*', { count: 'exact' })
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) {
       console.error("Error fetching activity logs:", error.message);
-      return { data: [], error, count: 0 }; // Return 0 count on error
+      return { data: [], error, count: 0 };
     }
     
-    return { data: logs || [], error: null, count: count === null || count === undefined ? 0 : count }; // Return fetched logs and total count
+    return { data: logs || [], error: null, count: count === null || count === undefined ? 0 : count }; 
   } catch (err) {
     console.error('Unexpected error fetching activity logs:', err);
-    return { data: [], error: err, count: 0 }; // Return 0 count on unexpected error
+    return { data: [], error: err, count: 0 }; 
   }
 }
 
-// Utility function to format date for display
 function formatActivityDate(dateString) {
   const date = new Date(dateString);
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -84,36 +82,33 @@ function formatActivityTime(dateString) {
 
 export default function SettingsLogPage() {
   const pathname = usePathname();
-  const [userProfile, setUserProfile] = useState(null); // User profile data
-  const [activityLogs, setActivityLogs] = useState([]); // Logs for the current page
-  const [loading, setLoading] = useState(true);         // Unified loading state for profile and initial logs
-  const [refreshing, setRefreshing] = useState(false);   // For refresh button animation and disabling
-  const [currentPage, setCurrentPage] = useState(1);     // Current active page
-  const [totalLogsCount, setTotalLogsCount] = useState(0); // Total number of logs for the user
+  const [userProfile, setUserProfile] = useState(null); 
+  const [activityLogs, setActivityLogs] = useState([]); 
+  const [loading, setLoading] = useState(true);         
+  const [refreshing, setRefreshing] = useState(false);   
+  const [currentPage, setCurrentPage] = useState(1);     
+  const [totalLogsCount, setTotalLogsCount] = useState(0); 
 
-  // Effect to load user profile on component mount
+  
   useEffect(() => {
     async function loadProfile() {
-      setLoading(true); // Indicate loading has started
+      setLoading(true); 
       const profile = await fetchUserProfile();
       setUserProfile(profile);
 
       if (!profile || !profile.userId) {
-        // If no profile or user ID, clear logs and stop loading as logs can't be fetched.
         setActivityLogs([]);
         setTotalLogsCount(0);
         setLoading(false);
       }
-      // If profile is loaded, the next useEffect will handle fetching logs and its own loading cycle.
     }
     loadProfile();
-  }, []); // Runs once on mount
+  }, []); 
 
-  // Effect to load activity logs when userProfile is available or currentPage changes
   useEffect(() => {
     async function loadLogs() {
       if (userProfile && userProfile.userId) {
-        setLoading(true); // Set loading true before fetching logs for the current page
+        setLoading(true); 
         const offset = (currentPage - 1) * ITEMS_PER_PAGE;
         const { data: newLogs, count: newTotalCount, error } = await fetchActivityLogs(
           userProfile.userId,
@@ -127,24 +122,22 @@ export default function SettingsLogPage() {
           setTotalLogsCount(0);
         } else {
           setActivityLogs(newLogs);
-          setTotalLogsCount(newTotalCount); // Set the total logs count from the fetched data
+          setTotalLogsCount(newTotalCount);
         }
-        setLoading(false); // Set loading false after logs are fetched or an error occurred
+        setLoading(false); 
       }
     }
 
-    // Only attempt to load logs if the user profile has been successfully fetched.
     if (userProfile?.userId) {
       loadLogs();
     }
-    // If userProfile is null (e.g., after initial fetch failed), logs are already cleared by the first useEffect.
-  }, [userProfile, currentPage]); // Dependencies: run if userProfile or currentPage changes
+  }, [userProfile, currentPage]); 
 
   const handleRefresh = async () => {
-    if (!userProfile || !userProfile.userId || loading || refreshing) return; // Prevent multiple calls
+    if (!userProfile || !userProfile.userId || loading || refreshing) return; 
     
-    setRefreshing(true); // Start refresh animation
-    setLoading(true);    // Indicate that data is being loaded
+    setRefreshing(true); 
+    setLoading(true);   
 
     const offset = (currentPage - 1) * ITEMS_PER_PAGE;
     const { data: newLogs, count: newTotalCount, error } = await fetchActivityLogs(
@@ -155,13 +148,12 @@ export default function SettingsLogPage() {
 
     if (error) {
       console.error("Error refreshing activity logs:", error.message);
-      // Optionally, you could show an error message to the user
     } else {
       setActivityLogs(newLogs);
       setTotalLogsCount(newTotalCount);
     }
-    setLoading(false);    // Stop loading indicator
-    setRefreshing(false); // Stop refresh animation
+    setLoading(false);  
+    setRefreshing(false);
   };
   
   let avatarSrc = `https://ui-avatars.com/api/?name=User&background=random`;
@@ -170,7 +162,6 @@ export default function SettingsLogPage() {
 
   if (userProfile) {
       userEmail = userProfile.email || 'User';
-      // Prioritize avatar_url from profiles, then from auth.user.user_metadata (via userProfile.avatar_url after merge), then ui-avatars
       avatarSrc = userProfile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userEmail)}&background=random`;
       
       if (userEmail && userEmail.includes('@')) {
@@ -189,7 +180,7 @@ export default function SettingsLogPage() {
 
   const renderNavSettings = (item, index) => (
       <li key={index}>
-          <a // Using <a> tag as per original snippet; replace with <Link> if Next.js routing is intended here.
+          <a 
               href={item.href}
               className={`hover:opacity-100 ${pathname === item.href ? 'opacity-100' : 'opacity-20'} text-sm sm:text-md text-[#232360]`}
           >
@@ -208,16 +199,12 @@ export default function SettingsLogPage() {
     if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
   };
 
-  // Conditional rendering logic for the activity log section
   let activityLogContent;
   if (loading && activityLogs.length === 0 && currentPage === 1) {
-    // Show loading message only on initial load of the first page when no logs are yet displayed
     activityLogContent = <div className="text-center py-8 text-gray-500">Loading activity logs...</div>;
   } else if (!loading && (!userProfile || !userProfile.userId)) {
-    // Show message if user profile could not be loaded (and not currently loading)
     activityLogContent = <div className="text-center py-8 text-gray-500">Could not load user profile to fetch activity logs.</div>;
   } else if (!loading && activityLogs.length === 0 && userProfile && userProfile.userId) {
-    // Show "No activity logs found" if loading is complete, user profile exists, but no logs
     activityLogContent = (
       <div className="overflow-x-auto">
         <table className="w-full text-left table-fixed border-collapse">
@@ -240,7 +227,6 @@ export default function SettingsLogPage() {
       </div> 
     );
   } else {
-    // Display the activity logs table if logs are available
     activityLogContent = (
       <div className="overflow-x-auto">
         <table className="w-full text-left table-fixed border-collapse">
@@ -357,7 +343,7 @@ export default function SettingsLogPage() {
           <h2 className="text-xl font-semibold text-[#232360]">Recent Activity</h2>
           <button
             onClick={handleRefresh}
-            disabled={refreshing || loading} // Disable if either refreshing or general loading is true
+            disabled={refreshing || loading} 
             className="flex items-center gap-2 px-3 py-1 text-sm bg-[#232360] text-white rounded hover:bg-opacity-90 disabled:opacity-50 hover:cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />

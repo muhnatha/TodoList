@@ -18,7 +18,6 @@ const initialActionState = {
   task: null
 };
 
-// Helper to format date to YYYY-MM-DD string
 const toYYYYMMDD = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -125,7 +124,6 @@ export default function TodoPage() {
   useEffect(() => {
     const initializePage = async (sessionUser) => {
       if (isInitializingRef.current) {
-        console.log("TodoPage: Initialization already in progress. Skipping.");
         return;
       }
       isInitializingRef.current = true;
